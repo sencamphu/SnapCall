@@ -50,7 +50,7 @@
                 };
                 fetchData();
 
-                // Đăng ký kênh Realtime Broadcast + Postgres Changes (không nhận tin nhắn do chính mình phát ra)
+                // Đăng ký kênh Realtime Broadcast + Postgres Changes
                 const channel = supabaseClient
                     .channel('room_poker_live', { config: { broadcast: { self: false } } })
                     .on('postgres_changes', { event: '*', schema: 'public', table: 'tournaments' }, payload => {
@@ -65,7 +65,7 @@
                     })
                     .subscribe();
 
-                // Hàm lưu dữ liệu lên Cloud & truyền tin tức thì cho mọi thiết bị khác
+                // Hàm lưu dữ liệu lên Cloud & truyền tin tức thời cho mọi thiết bị khác
                 window.saveTournamentsToCloud = async (toursData) => {
                     try {
                         // Phát broadcast tức thì cho các thiết bị khác
@@ -229,18 +229,18 @@ const defaultBlinds = [
 ];
 
 const defaultTourTemplate = (name, id, buyIn, rebuyPrice) => ({
-    id: id,
+    id: id || Date.now(),
     config: {
         clubName: 'SNAP CALL',
         subTitle: 'BOARD GAME & COFFEE',
-        name: name,
-        buyIn: buyIn,
+        name: name || 'SNAP CALL MAIN EVENT',
+        buyIn: buyIn || 100,
         currency: 'TOKEN',
         fee: 0,
         startingStack: 25000,
         maxPlayersPerTable: 10,
         allowRebuys: true,
-        rebuyPrice: rebuyPrice,
+        rebuyPrice: rebuyPrice || 100,
         regEndLevel: 11,
         logoPosition: 'Center',
         logoSizePx: 80,
@@ -522,23 +522,26 @@ function App() {
     const [activeView, setActiveView] = useState('player-tv');
     const [wizardStep, setWizardStep] = useState(1);
     const [isCloudSynced, setIsCloudSynced] = useState(false);
+    const [showFontSizeSettings, setShowFontSizeSettings] = useState(false);
+    
     const isRemoteUpdating = useRef(false);
     const lastLocalString = useRef('');
 
+    // MẶC ĐỊNH CHỈ CÓ 1 TOUR CỐ ĐỊNH BAN ĐẦU
     const [tournaments, setTournaments] = useState(() => {
         const saved = localStorage.getItem('poker_tournaments_live_v6');
         if (saved) {
-            try { return JSON.parse(saved); } catch(e) {}
+            try { 
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+            } catch(e) {}
         }
-        return [
-            defaultTourTemplate('SUPER HIGH ROLLER', 1, 130, 130),
-            defaultTourTemplate('TURBO CHAMPIONSHIP', 2, 100, 100)
-        ];
+        return [defaultTourTemplate('SNAP CALL MAIN EVENT', 101, 100, 100)];
     });
 
-    const [selectedTourId, setSelectedTourId] = useState(1);
+    const [selectedTourId, setSelectedTourId] = useState(() => tournaments[0]?.id || 101);
 
-    const activeTour = tournaments.find(t => t.id === selectedTourId) || tournaments[0];
+    const activeTour = tournaments.find(t => t.id === selectedTourId) || tournaments[0] || defaultTourTemplate('SNAP CALL MAIN EVENT', 101, 100, 100);
 
     useEffect(() => {
         if (window.initCloudSync) {
@@ -550,7 +553,10 @@ function App() {
                             isRemoteUpdating.current = true;
                             lastLocalString.current = newStr;
                             setTournaments(cloudTours);
-                            setTimeout(() => { isRemoteUpdating.current = false; }, 150);
+                            if (!cloudTours.some(t => t.id === selectedTourId)) {
+                                setSelectedTourId(cloudTours[0].id);
+                            }
+                            setTimeout(() => { isRemoteUpdating.current = false; }, 300);
                         }
                     }
                 },
@@ -804,7 +810,10 @@ function App() {
         if (window.confirm("Bạn có chắc chắn muốn RESET Tour này về Level 1 ban đầu?")) {
             setTournaments(prev => prev.map(t => {
                 if (t.id === selectedTourId) {
-                    return defaultTourTemplate(t.config.name, t.id, t.config.buyIn, t.config.rebuyPrice);
+                    const fresh = defaultTourTemplate(t.config.name, t.id, t.config.buyIn, t.config.rebuyPrice);
+                    fresh.gameStats.isPaused = true;
+                    fresh.gameStats.targetEndTime = null;
+                    return fresh;
                 }
                 return t;
             }));
@@ -814,6 +823,10 @@ function App() {
     const addNewTournament = () => {
         const newId = Date.now();
         const newTour = defaultTourTemplate(`TOUR #${tournaments.length + 1}`, newId, 100, 100);
+        newTour.gameStats.isPaused = true;
+        newTour.gameStats.targetEndTime = null;
+
+        isRemoteUpdating.current = false;
         setTournaments(prev => [...prev, newTour]);
         setSelectedTourId(newId);
     };
@@ -824,6 +837,7 @@ function App() {
             return;
         }
         if (window.confirm("Xóa giải đấu này khỏi hệ thống?")) {
+            isRemoteUpdating.current = false;
             const remaining = tournaments.filter(t => t.id !== tourId);
             setTournaments(remaining);
             if (selectedTourId === tourId) {
@@ -844,29 +858,38 @@ function App() {
 
     const loadSingleTourFromFile = (e) => {
         const fileReader = new FileReader();
-        if (e.target.files[0]) {
+        if (e.target.files && e.target.files[0]) {
             fileReader.readAsText(e.target.files[0], "UTF-8");
             fileReader.onload = (event) => {
                 try {
                     const parsedData = JSON.parse(event.target.result);
                     if (parsedData && parsedData.config && parsedData.blinds) {
+                        isRemoteUpdating.current = false;
                         setTournaments(prev => prev.map(t => {
                             if (t.id === selectedTourId) {
                                 return {
                                     ...parsedData,
-                                    id: selectedTourId
+                                    id: selectedTourId,
+                                    gameStats: {
+                                        ...parsedData.gameStats,
+                                        isPaused: true,
+                                        targetEndTime: null
+                                    }
                                 };
                             }
                             return t;
                         }));
                         alert(`Đã cập nhật tour "${parsedData.config.name}" thành công!`);
                     } else if (Array.isArray(parsedData) && parsedData.length > 0) {
+                        isRemoteUpdating.current = false;
                         setTournaments(parsedData);
                         setSelectedTourId(parsedData[0].id);
                         alert("Đã nhập toàn bộ danh sách Tour thành công!");
+                    } else {
+                        alert("File JSON không hợp lệ!");
                     }
                 } catch (error) {
-                    alert("Lỗi đọc file JSON!");
+                    alert("Lỗi đọc file JSON! Vui lòng kiểm tra lại định dạng.");
                 }
             };
         }
@@ -885,7 +908,7 @@ function App() {
                 <script src="https://cdn.tailwindcss.com"><\/script>
                 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"><\/script>
                 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"><\/script>
-                <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"><\/script>
+                <script crossorigin src="https://unpkg/@babel/standalone/babel.min.js"><\/script>
                 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cinzel:wght@700;900&family=Impact&family=Montserrat:wght@500;600;700;800;900&family=Oswald:wght@700&family=Roboto+Mono:wght@700&family=Teko:wght@700&display=swap" rel="stylesheet">
                 <style>
                     html, body { height: 100vh; width: 100vw; margin: 0; padding: 0; background-color: #070709; color: #fff; font-family: 'Montserrat', sans-serif; overflow: hidden; }
@@ -1111,7 +1134,7 @@ function App() {
                                                     e.stopPropagation();
                                                     removeTournament(t.id);
                                                 }}
-                                                className="hover:bg-black/20 rounded px-1 text-xs font-black"
+                                                className="hover:bg-black/20 rounded px-1 text-xs font-black text-red-400"
                                                 title="Xóa tour này"
                                             >
                                                 ✕
@@ -1347,67 +1370,79 @@ function App() {
                                             </div>
                                         </div>
 
-                                        <div className="space-y-3 pt-3 border-t border-gray-800">
-                                            <label className="block text-gold font-bold uppercase">Cấu hình Kích thước Hình ảnh & Font chữ TV Customization (Pixel)</label>
+                                        {/* CẤU HÌNH KÍCH THƯỚC FONT ĐƯỢC ẨN CỐ ĐỊNH, NHẤN VÀO MỚI MỞ RA */}
+                                        <div className="pt-2 border-t border-gray-800">
+                                            <button 
+                                                type="button" 
+                                                onClick={() => setShowFontSizeSettings(!showFontSizeSettings)}
+                                                className="w-full text-left py-2 px-3 bg-gray-900/90 hover:bg-gray-800 border border-amber-500/40 rounded-lg text-amber-300 font-bold flex justify-between items-center transition"
+                                            >
+                                                <span>⚙️ {showFontSizeSettings ? 'Ẩn Tùy Chỉnh Kích Thước & Pixel Font TV' : 'Mở Tùy Chỉnh Kích Thước & Pixel Font TV (Nâng Cao)'}</span>
+                                                <span className="text-xs">{showFontSizeSettings ? '▲' : '▼'}</span>
+                                            </button>
 
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-black/30 p-3 rounded-lg border border-gray-800">
-                                                <div>
-                                                    <span className="text-xs text-amber-300 font-bold block mb-1">Title Snapcall Size (px)</span>
-                                                    <input type="number" value={activeTour.config.fontCustomSizes?.brandPx || 20} onChange={(e)=> {
-                                                        const fontCustomSizes = { ...(activeTour.config.fontCustomSizes || {}), brandPx: Number(e.target.value) };
-                                                        updateActiveConfig('fontCustomSizes', fontCustomSizes);
-                                                    }} className="w-full bg-gray-900 border border-amber-500/50 rounded p-2 text-amber-300 font-bold text-center" />
+                                            {showFontSizeSettings && (
+                                                <div className="space-y-3 pt-3 mt-2 bg-black/40 p-3 rounded-xl border border-gray-800">
+                                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                                        <div>
+                                                            <span className="text-xs text-amber-300 font-bold block mb-1">Title Snapcall (px)</span>
+                                                            <input type="number" value={activeTour.config.fontCustomSizes?.brandPx || 20} onChange={(e)=> {
+                                                                const fontCustomSizes = { ...(activeTour.config.fontCustomSizes || {}), brandPx: Number(e.target.value) };
+                                                                updateActiveConfig('fontCustomSizes', fontCustomSizes);
+                                                            }} className="w-full bg-gray-900 border border-amber-500/50 rounded p-2 text-amber-300 font-bold text-center" />
+                                                        </div>
+                                                        <div>
+                                                            <span className="text-xs text-amber-300 font-bold block mb-1">Header Title Tour (px)</span>
+                                                            <input type="number" value={activeTour.config.fontCustomSizes?.headerPx || 36} onChange={(e)=> {
+                                                                const fontCustomSizes = { ...(activeTour.config.fontCustomSizes || {}), headerPx: Number(e.target.value) };
+                                                                updateActiveConfig('fontCustomSizes', fontCustomSizes);
+                                                            }} className="w-full bg-gray-900 border border-amber-500/50 rounded p-2 text-amber-300 font-bold text-center" />
+                                                        </div>
+                                                        <div>
+                                                            <span className="text-xs text-amber-300 font-bold block mb-1">Level Badge (px)</span>
+                                                            <input type="number" value={activeTour.config.fontCustomSizes?.levelBadgePx || 22} onChange={(e)=> {
+                                                                const fontCustomSizes = { ...(activeTour.config.fontCustomSizes || {}), levelBadgePx: Number(e.target.value) };
+                                                                updateActiveConfig('fontCustomSizes', fontCustomSizes);
+                                                            }} className="w-full bg-gray-900 border border-amber-500/50 rounded p-2 text-amber-300 font-bold text-center" />
+                                                        </div>
+                                                        <div>
+                                                            <span className="text-xs text-amber-300 font-bold block mb-1">Timer Countdown (px)</span>
+                                                            <input type="number" value={activeTour.config.fontCustomSizes?.timerPx || 108} onChange={(e)=> {
+                                                                const fontCustomSizes = { ...(activeTour.config.fontCustomSizes || {}), timerPx: Number(e.target.value) };
+                                                                updateActiveConfig('fontCustomSizes', fontCustomSizes);
+                                                            }} className="w-full bg-gray-900 border border-amber-500/50 rounded p-2 text-amber-300 font-bold text-center" />
+                                                        </div>
+                                                        <div>
+                                                            <span className="text-xs text-amber-300 font-bold block mb-1">Blinds & Ante (px)</span>
+                                                            <input type="number" value={activeTour.config.fontCustomSizes?.blindsPx || 28} onChange={(e)=> {
+                                                                const fontCustomSizes = { ...(activeTour.config.fontCustomSizes || {}), blindsPx: Number(e.target.value) };
+                                                                updateActiveConfig('fontCustomSizes', fontCustomSizes);
+                                                            }} className="w-full bg-gray-900 border border-amber-500/50 rounded p-2 text-amber-300 font-bold text-center" />
+                                                        </div>
+                                                        <div>
+                                                            <span className="text-xs text-amber-300 font-bold block mb-1">Next Level (px)</span>
+                                                            <input type="number" value={activeTour.config.fontCustomSizes?.nextLevelPx || 16} onChange={(e)=> {
+                                                                const fontCustomSizes = { ...(activeTour.config.fontCustomSizes || {}), nextLevelPx: Number(e.target.value) };
+                                                                updateActiveConfig('fontCustomSizes', fontCustomSizes);
+                                                            }} className="w-full bg-gray-900 border border-amber-500/50 rounded p-2 text-amber-300 font-bold text-center" />
+                                                        </div>
+                                                        <div>
+                                                            <span className="text-xs text-amber-300 font-bold block mb-1">Players / Stack (px)</span>
+                                                            <input type="number" value={activeTour.config.fontCustomSizes?.statsPx || 18} onChange={(e)=> {
+                                                                const fontCustomSizes = { ...(activeTour.config.fontCustomSizes || {}), statsPx: Number(e.target.value) };
+                                                                updateActiveConfig('fontCustomSizes', fontCustomSizes);
+                                                            }} className="w-full bg-gray-900 border border-amber-500/50 rounded p-2 text-amber-300 font-bold text-center" />
+                                                        </div>
+                                                        <div>
+                                                            <span className="text-xs text-amber-300 font-bold block mb-1">Payouts / Token (px)</span>
+                                                            <input type="number" value={activeTour.config.fontCustomSizes?.payoutsPx || 18} onChange={(e)=> {
+                                                                const fontCustomSizes = { ...(activeTour.config.fontCustomSizes || {}), payoutsPx: Number(e.target.value) };
+                                                                updateActiveConfig('fontCustomSizes', fontCustomSizes);
+                                                            }} className="w-full bg-gray-900 border border-amber-500/50 rounded p-2 text-amber-300 font-bold text-center" />
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <span className="text-xs text-amber-300 font-bold block mb-1">Header Title Tour (px)</span>
-                                                    <input type="number" value={activeTour.config.fontCustomSizes?.headerPx || 36} onChange={(e)=> {
-                                                        const fontCustomSizes = { ...(activeTour.config.fontCustomSizes || {}), headerPx: Number(e.target.value) };
-                                                        updateActiveConfig('fontCustomSizes', fontCustomSizes);
-                                                    }} className="w-full bg-gray-900 border border-amber-500/50 rounded p-2 text-amber-300 font-bold text-center" />
-                                                </div>
-                                                <div>
-                                                    <span className="text-xs text-amber-300 font-bold block mb-1">Level Badge Size (px)</span>
-                                                    <input type="number" value={activeTour.config.fontCustomSizes?.levelBadgePx || 22} onChange={(e)=> {
-                                                        const fontCustomSizes = { ...(activeTour.config.fontCustomSizes || {}), levelBadgePx: Number(e.target.value) };
-                                                        updateActiveConfig('fontCustomSizes', fontCustomSizes);
-                                                    }} className="w-full bg-gray-900 border border-amber-500/50 rounded p-2 text-amber-300 font-bold text-center" />
-                                                </div>
-                                                <div>
-                                                    <span className="text-xs text-amber-300 font-bold block mb-1">Timer Countdown (px)</span>
-                                                    <input type="number" value={activeTour.config.fontCustomSizes?.timerPx || 108} onChange={(e)=> {
-                                                        const fontCustomSizes = { ...(activeTour.config.fontCustomSizes || {}), timerPx: Number(e.target.value) };
-                                                        updateActiveConfig('fontCustomSizes', fontCustomSizes);
-                                                    }} className="w-full bg-gray-900 border border-amber-500/50 rounded p-2 text-amber-300 font-bold text-center" />
-                                                </div>
-                                                <div>
-                                                    <span className="text-xs text-amber-300 font-bold block mb-1">Blinds & Ante Size (px)</span>
-                                                    <input type="number" value={activeTour.config.fontCustomSizes?.blindsPx || 28} onChange={(e)=> {
-                                                        const fontCustomSizes = { ...(activeTour.config.fontCustomSizes || {}), blindsPx: Number(e.target.value) };
-                                                        updateActiveConfig('fontCustomSizes', fontCustomSizes);
-                                                    }} className="w-full bg-gray-900 border border-amber-500/50 rounded p-2 text-amber-300 font-bold text-center" />
-                                                </div>
-                                                <div>
-                                                    <span className="text-xs text-amber-300 font-bold block mb-1">Next Level Size (px)</span>
-                                                    <input type="number" value={activeTour.config.fontCustomSizes?.nextLevelPx || 16} onChange={(e)=> {
-                                                        const fontCustomSizes = { ...(activeTour.config.fontCustomSizes || {}), nextLevelPx: Number(e.target.value) };
-                                                        updateActiveConfig('fontCustomSizes', fontCustomSizes);
-                                                    }} className="w-full bg-gray-900 border border-amber-500/50 rounded p-2 text-amber-300 font-bold text-center" />
-                                                </div>
-                                                <div>
-                                                    <span className="text-xs text-amber-300 font-bold block mb-1">Chỉ số Players / Stack (px)</span>
-                                                    <input type="number" value={activeTour.config.fontCustomSizes?.statsPx || 18} onChange={(e)=> {
-                                                        const fontCustomSizes = { ...(activeTour.config.fontCustomSizes || {}), statsPx: Number(e.target.value) };
-                                                        updateActiveConfig('fontCustomSizes', fontCustomSizes);
-                                                    }} className="w-full bg-gray-900 border border-amber-500/50 rounded p-2 text-amber-300 font-bold text-center" />
-                                                </div>
-                                                <div>
-                                                    <span className="text-xs text-amber-300 font-bold block mb-1">Cơ cấu Payouts / Token (px)</span>
-                                                    <input type="number" value={activeTour.config.fontCustomSizes?.payoutsPx || 18} onChange={(e)=> {
-                                                        const fontCustomSizes = { ...(activeTour.config.fontCustomSizes || {}), payoutsPx: Number(e.target.value) };
-                                                        updateActiveConfig('fontCustomSizes', fontCustomSizes);
-                                                    }} className="w-full bg-gray-900 border border-amber-500/50 rounded p-2 text-amber-300 font-bold text-center" />
-                                                </div>
-                                            </div>
+                                            )}
                                         </div>
                                     </div>
                                 )}
