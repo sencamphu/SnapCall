@@ -19,57 +19,56 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cinzel:wght@700;900&family=Impact&family=Montserrat:wght@500;600;700;800;900&family=Oswald:wght@700&family=Roboto+Mono:wght@700&family=Teko:wght@700&display=swap" rel="stylesheet">
     
-    <!-- Firebase SDK Integration for Cloud Sync -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'snapcall-poker-app';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-            apiKey: "demo-api-key",
-            authDomain: "demo-app.firebaseapp.com",
-            projectId: "demo-app",
-            storageBucket: "demo-app.appspot.com",
-            messagingSenderId: "123456789",
-            appId: "1:123456789:web:demo"
-        };
+    <!-- Supabase SDK Realtime Integration -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const SUPABASE_URL = "https://mkizhwumwxfqlwwfoief.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_XL_p7DDfizVqdz_mETXztw_7MecHfiQ";
 
         window.initCloudSync = async function(onDataReceived, onSyncStatusChange) {
-            try {
-                const app = initializeApp(firebaseConfig);
-                const auth = getAuth(app);
-                const db = getFirestore(app);
+            if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !window.supabase) {
+                console.warn("Supabase SDK chưa sẵn sàng.");
+                onSyncStatusChange(false);
+                return;
+            }
 
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
+            try {
+                const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                onSyncStatusChange(true);
+
+                // Nạp dữ liệu khởi tạo từ Supabase
+                const { data } = await supabaseClient
+                    .from('tournaments')
+                    .select('data')
+                    .eq('id', 'live_state')
+                    .single();
+
+                if (data && data.data) {
+                    onDataReceived(data.data);
                 }
 
-                onAuthStateChanged(auth, (user) => {
-                    if (user) {
-                        onSyncStatusChange(true);
-                        const tourDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'tournaments', 'live_data');
-                        onSnapshot(tourDocRef, (docSnap) => {
-                            if (docSnap.exists() && docSnap.data().tours) {
-                                onDataReceived(docSnap.data().tours);
-                            }
-                        }, (error) => {
-                            console.warn("Cloud sync read error:", error);
-                        });
+                // Đăng ký kênh Realtime để đồng bộ tức thì giữa Điện thoại & TV/Laptop
+                supabaseClient
+                    .channel('public:poker_live')
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'tournaments' }, payload => {
+                        if (payload.new && payload.new.data) {
+                            onDataReceived(payload.new.data);
+                        }
+                    })
+                    .subscribe();
 
-                        window.saveTournamentsToCloud = async (toursData) => {
-                            try {
-                                await setDoc(tourDocRef, { tours: toursData, updatedAt: Date.now() }, { merge: true });
-                            } catch (e) {
-                                console.warn("Cloud sync write error:", e);
-                            }
-                        };
+                // Đăng ký hàm lưu dữ liệu lên Supabase Cloud
+                window.saveTournamentsToCloud = async (toursData) => {
+                    try {
+                        await supabaseClient
+                            .from('tournaments')
+                            .upsert({ id: 'live_state', data: toursData, updated_at: new Date() });
+                    } catch (e) {
+                        console.warn("Lỗi đồng bộ Supabase Cloud:", e);
                     }
-                });
+                };
             } catch (err) {
-                console.warn("Cloud sync init error:", err);
+                console.warn("Lỗi khởi tạo Supabase Cloud Sync:", err);
                 onSyncStatusChange(false);
             }
         };
@@ -1024,7 +1023,7 @@ function App() {
                     <span className="text-gray-300 font-semibold">| {activeTour.config.clubName} {activeTour.config.subTitle}</span>
                     {isCloudSynced && (
                         <span className="bg-emerald-950 border border-emerald-500/50 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Live Cloud Synced
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Live Supabase Synced
                         </span>
                     )}
                 </div>
