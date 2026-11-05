@@ -36,39 +36,55 @@
                 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
                 onSyncStatusChange(true);
 
-                // Nạp dữ liệu khởi tạo từ Supabase
-                const { data } = await supabaseClient
-                    .from('tournaments')
-                    .select('data')
-                    .eq('id', 'live_state')
-                    .single();
+                // Nạp dữ liệu ban đầu từ Supabase
+                const fetchData = async () => {
+                    const { data, error } = await supabaseClient
+                        .from('tournaments')
+                        .select('data')
+                        .eq('id', 'live_state')
+                        .maybeSingle();
 
-                if (data && data.data) {
-                    onDataReceived(data.data);
-                }
+                    if (data && data.data) {
+                        onDataReceived(data.data);
+                    }
+                };
+                fetchData();
 
-                // Đăng ký kênh Realtime để đồng bộ tức thì giữa Điện thoại & TV/Laptop
-                supabaseClient
-                    .channel('public:poker_live')
+                // Đăng ký kênh Realtime Broadcast + Postgres Changes
+                const channel = supabaseClient
+                    .channel('room_poker_live', { config: { broadcast: { self: false } } })
                     .on('postgres_changes', { event: '*', schema: 'public', table: 'tournaments' }, payload => {
                         if (payload.new && payload.new.data) {
                             onDataReceived(payload.new.data);
                         }
                     })
+                    .on('broadcast', { event: 'tour_update' }, payload => {
+                        if (payload.payload && payload.payload.data) {
+                            onDataReceived(payload.payload.data);
+                        }
+                    })
                     .subscribe();
 
-                // Đăng ký hàm lưu dữ liệu lên Supabase Cloud
+                // Hàm lưu dữ liệu lên Cloud & truyền tin tức thì
                 window.saveTournamentsToCloud = async (toursData) => {
                     try {
+                        // Phát broadcast tức thì cho thiết bị đang xem
+                        channel.send({
+                            type: 'broadcast',
+                            event: 'tour_update',
+                            payload: { data: toursData }
+                        });
+
+                        // Ghi dữ liệu vào database Supabase
                         await supabaseClient
                             .from('tournaments')
                             .upsert({ id: 'live_state', data: toursData, updated_at: new Date() });
                     } catch (e) {
-                        console.warn("Lỗi đồng bộ Supabase Cloud:", e);
+                        console.warn("Lỗi lưu Supabase Cloud:", e);
                     }
                 };
             } catch (err) {
-                console.warn("Lỗi khởi tạo Supabase Cloud Sync:", err);
+                console.warn("Lỗi kết nối Supabase Cloud Sync:", err);
                 onSyncStatusChange(false);
             }
         };
