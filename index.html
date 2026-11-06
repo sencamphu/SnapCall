@@ -36,7 +36,7 @@
                 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
                 onSyncStatusChange(true);
 
-                // Nạp dữ liệu ban đầu từ Supabase
+                // Cloud-First Hydration: Nạp dữ liệu mới nhất từ Supabase ngay khi mở ứng dụng
                 const fetchData = async () => {
                     const { data, error } = await supabaseClient
                         .from('tournaments')
@@ -44,13 +44,13 @@
                         .eq('id', 'live_state')
                         .maybeSingle();
 
-                    if (data && data.data) {
+                    if (data && data.data && Array.isArray(data.data) && data.data.length > 0) {
                         onDataReceived(data.data, true);
                     }
                 };
                 fetchData();
 
-                // Đăng ký kênh Realtime Broadcast + Postgres Changes
+                // Đăng ký nhận thông tin Realtime Broadcast + Postgres Changes
                 const channel = supabaseClient
                     .channel('room_poker_live', { config: { broadcast: { self: false } } })
                     .on('postgres_changes', { event: '*', schema: 'public', table: 'tournaments' }, payload => {
@@ -65,17 +65,15 @@
                     })
                     .subscribe();
 
-                // Hàm lưu dữ liệu lên Cloud & truyền tin tức thời cho mọi thiết bị khác
+                // Lưu trạng thái tour thực tế lên Cloud & phát cho các thiết bị khác
                 window.saveTournamentsToCloud = async (toursData) => {
                     try {
-                        // Phát broadcast tức thì cho các thiết bị khác
                         channel.send({
                             type: 'broadcast',
                             event: 'tour_update',
                             payload: { data: toursData }
                         });
 
-                        // Ghi dữ liệu vào database Supabase
                         await supabaseClient
                             .from('tournaments')
                             .upsert({ id: 'live_state', data: toursData, updated_at: new Date() });
@@ -229,11 +227,11 @@ const defaultBlinds = [
 ];
 
 const defaultTourTemplate = (name, id, buyIn, rebuyPrice) => ({
-    id: id || Date.now(),
+    id: id || 101,
     config: {
         clubName: 'SNAP CALL',
         subTitle: 'BOARD GAME & COFFEE',
-        name: name || 'SNAP CALL MAIN EVENT',
+        name: name || 'MONTER STACK',
         buyIn: buyIn || 100,
         currency: 'TOKEN',
         fee: 0,
@@ -515,7 +513,7 @@ function App() {
     const [isCloudSynced, setIsCloudSynced] = useState(false);
     const [showFontSizeSettings, setShowFontSizeSettings] = useState(false);
     
-    // XÁC THỰC BẢO MẬT SETUP
+    // AUTHENTICATION STATE (TRẮNG BẢNG ĐĂNG NHẬP MẶC ĐỊNH)
     const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
         return localStorage.getItem('snapcall_admin_auth') === 'true';
     });
@@ -527,6 +525,7 @@ function App() {
     const isRemoteUpdating = useRef(false);
     const lastLocalString = useRef('');
 
+    // CLOUD FIRST HYDRATION SYSTEM
     const [tournaments, setTournaments] = useState(() => {
         const saved = localStorage.getItem('poker_tournaments_live_v6');
         if (saved) {
@@ -582,7 +581,6 @@ function App() {
 
     const handleLoginSubmit = (e) => {
         e.preventDefault();
-        // XÁC THỰC TÀI KHOẢN: ID = Admin, PASS = 123456
         if (idInput.trim() === 'Admin' && pinInput === '123456') {
             setIsAdminLoggedIn(true);
             localStorage.setItem('snapcall_admin_auth', 'true');
@@ -936,7 +934,7 @@ function App() {
                 <script src="https://cdn.tailwindcss.com"><\/script>
                 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"><\/script>
                 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"><\/script>
-                <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"><\/script>
+                <script crossorigin src="https://unpkg/@babel/standalone/babel.min.js"><\/script>
                 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cinzel:wght@700;900&family=Impact&family=Montserrat:wght@500;600;700;800;900&family=Oswald:wght@700&family=Roboto+Mono:wght@700&family=Teko:wght@700&display=swap" rel="stylesheet">
                 <style>
                     html, body { height: 100vh; width: 100vw; margin: 0; padding: 0; background-color: #070709; color: #fff; font-family: 'Montserrat', sans-serif; overflow: hidden; }
@@ -1142,7 +1140,7 @@ function App() {
                 </div>
             </header>
 
-            {/* MODAL ĐĂNG NHẬP TÀI KHOẢN SETUP */}
+            {/* MODAL ĐĂNG NHẬP SET UP */}
             {showLoginModal && (
                 <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
                     <div className="bg-black/90 border border-gold/40 rounded-2xl p-6 max-w-sm w-full shadow-2xl relative text-center">
@@ -1216,7 +1214,7 @@ function App() {
                                 ))}
                             </div>
 
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center space-x-2 flex-wrap">
                                 <button 
                                     onClick={addNewTournament}
                                     className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow cursor-pointer transition"
@@ -1448,7 +1446,6 @@ function App() {
                                             </div>
                                         </div>
 
-                                        {/* CẤU HÌNH KÍCH THƯỚC FONT ĐƯỢC ĐẶT GỌN GÀNG DƯỚI CÙNG */}
                                         <div className="pt-2 border-t border-gray-800">
                                             <button 
                                                 type="button" 
