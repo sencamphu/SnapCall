@@ -161,6 +161,20 @@
         .animate-pause-pulse {
             animation: pulse-fast 1.5s infinite ease-in-out;
         }
+
+        /* Styling cho phần kéo thả Level */
+        .drag-item {
+            cursor: grab;
+            transition: background-color 0.2s, transform 0.15s ease;
+        }
+        .drag-item:active {
+            cursor: grabbing;
+            transform: scale(0.99);
+        }
+        .drag-item.dragging {
+            opacity: 0.5;
+            border: 2px dashed #FACC15 !important;
+        }
     </style>
 </head>
 <body class="min-h-screen bg-[#070709] poker-bg">
@@ -353,7 +367,7 @@ function TournamentTVCard({ tour, openSinglePopout, isPopoutWindow }) {
 
     return (
         <div 
-            className={`w-full gold-border-box rounded-3xl bg-black/85 backdrop-blur-md p-4 sm:p-5 md:p-6 relative overflow-hidden shadow-2xl flex flex-col justify-between ${selectedFontClass} ${isPopoutWindow ? 'h-full min-h-screen' : 'min-h-[85vh]'} my-auto`}
+            className={`w-full gold-border-box rounded-3xl bg-black/85 backdrop-blur-md p-4 sm:p-5 md:p-6 relative overflow-hidden shadow-2xl flex flex-col justify-between ${selectedFontClass} ${isPopoutWindow ? 'h-screen w-screen justify-around p-8' : 'min-h-[85vh]'} my-auto`}
             style={{
                 backgroundImage: tour.config.bgImageUrl ? `url(${tour.config.bgImageUrl})` : 'none',
                 backgroundSize: 'cover',
@@ -519,6 +533,10 @@ function App() {
     const [isCloudSynced, setIsCloudSynced] = useState(false);
     const [showFontSizeSettings, setShowFontSizeSettings] = useState(false);
     
+    // Đánh dấu người dùng thao tác thật trên UI để chống bị ghi đè bởi thiết bị khác
+    const userHasModified = useRef(false);
+    const draggedItemIndex = useRef(null);
+
     const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
         return localStorage.getItem('snapcall_admin_auth') === 'true';
     });
@@ -597,9 +615,18 @@ function App() {
         }
     };
 
+    // FIX NÚT BỎ MẪU TOUR ĐÃ LƯU
+    const handleRemovePreset = (presetId, presetName, e) => {
+        e.stopPropagation();
+        if (window.confirm(`Bạn có chắc muốn BỎ MẪU tour "${presetName}" khỏi thư viện?`)) {
+            setSavedPresets(prev => prev.filter(p => p.id !== presetId));
+        }
+    };
+
     const handleLoadPreset = (presetId) => {
         const preset = savedPresets.find(p => p.id === presetId);
         if (preset && window.confirm(`Nạp cấu hình mẫu "${preset.name}" cho tour hiện tại?`)) {
+            userHasModified.current = true;
             setTournaments(prev => prev.map(t => {
                 if (t.id === selectedTourId) {
                     return {
@@ -623,6 +650,7 @@ function App() {
             const currentStr = JSON.stringify(tournaments);
             localStorage.setItem('poker_tournaments_live_v6', currentStr);
             
+            // Chỉ đồng bộ Cloud nếu không phải do Remote vừa kéo về
             if (!isRemoteUpdating.current && currentStr !== lastLocalString.current) {
                 lastLocalString.current = currentStr;
                 if (window.saveTournamentsToCloud) {
@@ -777,10 +805,12 @@ function App() {
     }, []);
 
     const updateActiveTour = (field, value) => {
+        userHasModified.current = true;
         setTournaments(prev => prev.map(t => t.id === selectedTourId ? { ...t, [field]: value } : t));
     };
 
     const updateActiveConfig = (field, value) => {
+        userHasModified.current = true;
         setTournaments(prev => prev.map(t => {
             if (t.id === selectedTourId) {
                 return { ...t, config: { ...t.config, [field]: value } };
@@ -826,6 +856,7 @@ function App() {
     };
 
     const handleStatChange = (field, delta) => {
+        userHasModified.current = true;
         setTournaments(prev => prev.map(t => {
             if (t.id === selectedTourId) {
                 return {
@@ -841,6 +872,7 @@ function App() {
     };
 
     const togglePauseTour = (tourId) => {
+        userHasModified.current = true;
         const now = Date.now();
         setTournaments(prev => prev.map(t => {
             if (t.id === tourId) {
@@ -870,6 +902,7 @@ function App() {
     };
 
     const adjustTimerSeconds = (tourId, deltaSeconds) => {
+        userHasModified.current = true;
         const now = Date.now();
         setTournaments(prev => prev.map(t => {
             if (t.id === tourId) {
@@ -889,6 +922,7 @@ function App() {
 
     const resetCurrentTour = () => {
         if (window.confirm("Bạn có chắc chắn muốn RESET Tour này về Level 1 ban đầu?")) {
+            userHasModified.current = true;
             setTournaments(prev => prev.map(t => {
                 if (t.id === selectedTourId) {
                     const fresh = defaultTourTemplate(t.config.name, t.id, t.config.buyIn, t.config.rebuyPrice);
@@ -902,6 +936,7 @@ function App() {
     };
 
     const addNewTournament = () => {
+        userHasModified.current = true;
         const newId = Date.now();
         const newTour = defaultTourTemplate(`TOUR #${tournaments.length + 1}`, newId, 100, 100);
         newTour.gameStats.isPaused = true;
@@ -918,6 +953,7 @@ function App() {
             return;
         }
         if (window.confirm("Xóa giải đấu này khỏi hệ thống?")) {
+            userHasModified.current = true;
             isRemoteUpdating.current = false;
             const remaining = tournaments.filter(t => t.id !== tourId);
             setTournaments(remaining);
@@ -945,6 +981,7 @@ function App() {
                 try {
                     const parsedData = JSON.parse(event.target.result);
                     if (parsedData && parsedData.config && parsedData.blinds) {
+                        userHasModified.current = true;
                         isRemoteUpdating.current = false;
                         setTournaments(prev => prev.map(t => {
                             if (t.id === selectedTourId) {
@@ -962,6 +999,7 @@ function App() {
                         }));
                         alert(`Đã cập nhật tour "${parsedData.config.name}" thành công!`);
                     } else if (Array.isArray(parsedData) && parsedData.length > 0) {
+                        userHasModified.current = true;
                         isRemoteUpdating.current = false;
                         setTournaments(parsedData);
                         setSelectedTourId(parsedData[0].id);
@@ -1007,7 +1045,7 @@ function App() {
                 </style>
             </head>
             <body class="w-full h-full poker-bg flex flex-col justify-center p-0 m-0">
-                <div id="popout-root" class="w-full h-full flex flex-col justify-center p-2 box-border"></div>
+                <div id="popout-root" class="w-full h-full flex flex-col justify-center p-0 m-0 box-border"></div>
             </body>
             </html>
         `);
@@ -1044,26 +1082,45 @@ function App() {
     };
 
     const addBlindLevel = (type) => {
+        userHasModified.current = true;
         const newBlinds = [...activeTour.blinds, type === 'level' ? { id: Date.now(), type: 'level', sb: 500, bb: 1000, ante: 1000, length: 15 } : { id: Date.now(), type: 'break', length: 10, title: 'Break', isChipRace: false, chipRaceTitle: '' }];
         updateActiveTour('blinds', newBlinds);
     };
 
     const removeBlind = (id) => {
+        userHasModified.current = true;
         const newBlinds = activeTour.blinds.filter(b => b.id !== id);
         updateActiveTour('blinds', newBlinds);
     };
 
-    const moveBlindItem = (index, direction) => {
+    // XỬ LÝ KÉO THẢ (DRAG AND DROP) CHO BLINDS
+    const handleDragStart = (e, index) => {
+        draggedItemIndex.current = index;
+        e.dataTransfer.effectAllowed = "move";
+        e.target.classList.add("dragging");
+    };
+
+    const handleDragEnd = (e) => {
+        e.target.classList.remove("dragging");
+        draggedItemIndex.current = null;
+    };
+
+    const handleDragOver = (e, index) => {
+        e.preventDefault();
+        if (draggedItemIndex.current === null || draggedItemIndex.current === index) return;
+        
         const newBlinds = [...activeTour.blinds];
-        const targetIndex = index + direction;
-        if (targetIndex < 0 || targetIndex >= newBlinds.length) return;
-        const temp = newBlinds[index];
-        newBlinds[index] = newBlinds[targetIndex];
-        newBlinds[targetIndex] = temp;
+        const draggedItem = newBlinds[draggedItemIndex.current];
+        newBlinds.splice(draggedItemIndex.current, 1);
+        newBlinds.splice(index, 0, draggedItem);
+        draggedItemIndex.current = index;
+
+        userHasModified.current = true;
         updateActiveTour('blinds', newBlinds);
     };
 
     const updateBlindField = (bId, field, val) => {
+        userHasModified.current = true;
         const newBlinds = activeTour.blinds.map(item => {
             if (item.id === bId) {
                 return { ...item, [field]: val };
@@ -1091,6 +1148,7 @@ function App() {
     };
 
     const addPayoutItem = () => {
+        userHasModified.current = true;
         const nextPlaceNum = activeTour.payouts.length + 1;
         const newPayouts = [...activeTour.payouts, { place: `Top ${nextPlaceNum}`, value: 1 }];
         updateActiveTour('payouts', newPayouts);
@@ -1101,11 +1159,13 @@ function App() {
             alert("Cần duy trì ít nhất 1 mức giải thưởng!");
             return;
         }
+        userHasModified.current = true;
         const newPayouts = activeTour.payouts.filter((_, i) => i !== idx);
         updateActiveTour('payouts', newPayouts);
     };
 
     const nextStepTour = (tourId) => {
+        userHasModified.current = true;
         const now = Date.now();
         setTournaments(prev => prev.map(t => {
             if (t.id === tourId && t.gameStats.currentStepIdx < t.blinds.length - 1) {
@@ -1126,6 +1186,7 @@ function App() {
     };
 
     const prevStepTour = (tourId) => {
+        userHasModified.current = true;
         const now = Date.now();
         setTournaments(prev => prev.map(t => {
             if (t.id === tourId && t.gameStats.currentStepIdx > 0) {
@@ -1242,13 +1303,21 @@ function App() {
                             <div className="flex items-center space-x-2 overflow-x-auto py-1">
                                 <span className="text-xs text-gold-bright uppercase font-bold mr-1">📚 Thư Viện Mẫu Tour (Web Presets):</span>
                                 {savedPresets.map(p => (
-                                    <button
-                                        key={p.id}
-                                        onClick={() => handleLoadPreset(p.id)}
-                                        className="px-3 py-1 rounded bg-gray-800 hover:bg-gold/20 text-gold border border-gold/40 text-xs font-bold transition cursor-pointer"
-                                    >
-                                        ⚡ Nạp {p.name}
-                                    </button>
+                                    <div key={p.id} className="inline-flex items-center rounded bg-gray-800 border border-gold/40 text-xs font-bold overflow-hidden shadow">
+                                        <button
+                                            onClick={() => handleLoadPreset(p.id)}
+                                            className="px-3 py-1 text-gold hover:bg-gold/20 transition cursor-pointer"
+                                        >
+                                            ⚡ Nạp {p.name}
+                                        </button>
+                                        <button
+                                            onClick={(e) => handleRemovePreset(p.id, p.name, e)}
+                                            className="px-2 py-1 text-red-400 hover:bg-red-900/60 border-l border-gray-700 transition cursor-pointer"
+                                            title="Bỏ mẫu này"
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
                                 ))}
                             </div>
 
@@ -1377,7 +1446,7 @@ function App() {
                                 {wizardStep === 2 && (
                                     <div className="space-y-3">
                                         <div className="flex justify-between items-center">
-                                            <span className="text-xs text-gold-bright uppercase font-bold">Cấu trúc Level & Break Time</span>
+                                            <span className="text-xs text-gold-bright uppercase font-bold">Cấu trúc Level & Break Time (Giữ biểu tượng ☰ để kéo thả đổi vị trí)</span>
                                             <div className="space-x-2">
                                                 <button onClick={() => addBlindLevel('level')} className="bg-amber-500 hover:bg-amber-400 text-black px-3 py-1 rounded text-xs font-bold cursor-pointer">+ Level</button>
                                                 <button onClick={() => addBlindLevel('break')} className="bg-gray-800 hover:bg-gray-700 text-gold border border-gold/30 px-3 py-1 rounded text-xs font-bold cursor-pointer">+ Break Time</button>
@@ -1393,11 +1462,18 @@ function App() {
                                                     const displayLvlNum = runningLevelCount;
 
                                                     return (
-                                                        <div key={b.id} className="bg-black/50 border border-gray-800 p-2.5 rounded-lg flex items-center justify-between text-xs gap-2">
-                                                            <div className="flex flex-col space-y-0.5">
-                                                                <button onClick={() => moveBlindItem(idx, -1)} disabled={idx === 0} className="bg-gray-800 hover:bg-gray-700 disabled:opacity-30 text-[10px] px-1.5 rounded">▲</button>
-                                                                <button onClick={() => moveBlindItem(idx, 1)} disabled={idx === activeTour.blinds.length - 1} className="bg-gray-800 hover:bg-gray-700 disabled:opacity-30 text-[10px] px-1.5 rounded">▼</button>
+                                                        <div 
+                                                            key={b.id} 
+                                                            draggable
+                                                            onDragStart={(e) => handleDragStart(e, idx)}
+                                                            onDragEnd={handleDragEnd}
+                                                            onDragOver={(e) => handleDragOver(e, idx)}
+                                                            className="drag-item bg-black/50 border border-gray-800 p-2.5 rounded-lg flex items-center justify-between text-xs gap-2 hover:border-gold/40"
+                                                        >
+                                                            <div className="flex items-center pr-1 text-gray-500 hover:text-gold cursor-grab active:cursor-grabbing text-base" title="Giữ để kéo thả vị trí">
+                                                                <i className="fa-solid fa-grip-vertical"></i>
                                                             </div>
+
                                                             {isLevel ? (
                                                                 <>
                                                                     <span className="font-bold text-gold-bright w-14">Lvl {displayLvlNum}</span>
