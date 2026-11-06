@@ -36,6 +36,7 @@
                 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
                 onSyncStatusChange(true);
 
+                // Nạp dữ liệu mới nhất từ Supabase ngay khi mở ứng dụng
                 const fetchData = async () => {
                     const { data, error } = await supabaseClient
                         .from('tournaments')
@@ -49,6 +50,7 @@
                 };
                 fetchData();
 
+                // Đăng ký nhận thông tin Realtime Broadcast + Postgres Changes
                 const channel = supabaseClient
                     .channel('room_poker_live', { config: { broadcast: { self: false } } })
                     .on('postgres_changes', { event: '*', schema: 'public', table: 'tournaments' }, payload => {
@@ -63,24 +65,27 @@
                     })
                     .subscribe();
 
-                let saveTimeout = null;
+                // Phát trực tiếp Broadcast tức thì (0ms latency) & Lưu đệm Database
+                let dbSaveTimeout = null;
                 window.saveTournamentsToCloud = async (toursData) => {
-                    if (saveTimeout) clearTimeout(saveTimeout);
-                    saveTimeout = setTimeout(async () => {
-                        try {
-                            channel.send({
-                                type: 'broadcast',
-                                event: 'tour_update',
-                                payload: { data: toursData }
-                            });
+                    try {
+                        // 1. Phát trực tiếp tức thì cho tất cả các thiết bị khác đang kết nối
+                        channel.send({
+                            type: 'broadcast',
+                            event: 'tour_update',
+                            payload: { data: toursData }
+                        });
 
+                        // 2. Lưu đệm vào Database Supabase để các thiết bị mở sau nạp lại
+                        if (dbSaveTimeout) clearTimeout(dbSaveTimeout);
+                        dbSaveTimeout = setTimeout(async () => {
                             await supabaseClient
                                 .from('tournaments')
                                 .upsert({ id: 'live_state', data: toursData, updated_at: new Date() });
-                        } catch (e) {
-                            console.warn("Lỗi lưu Supabase Cloud:", e);
-                        }
-                    }, 250); // Debounce 250ms chống quá tải & nhấp nhả
+                        }, 300);
+                    } catch (e) {
+                        console.warn("Lỗi lưu Supabase Cloud:", e);
+                    }
                 };
             } catch (err) {
                 console.warn("Lỗi kết nối Supabase Cloud Sync:", err);
@@ -524,7 +529,6 @@ function App() {
 
     const isRemoteUpdating = useRef(false);
     const lastLocalString = useRef('');
-    const lastLocalMutationTime = useRef(0); // Chống xung đột phản hồi cloud
 
     const [tournaments, setTournaments] = useState(() => {
         const saved = localStorage.getItem('poker_tournaments_live_v6');
@@ -545,9 +549,6 @@ function App() {
         if (window.initCloudSync) {
             window.initCloudSync(
                 (cloudTours, isFromRemote) => {
-                    // Nếu admin vừa thao tác local trong vòng 2 giây, bỏ qua tín hiệu cloud để tránh nhấp nhả
-                    if (Date.now() - lastLocalMutationTime.current < 2000) return;
-
                     if (cloudTours && Array.isArray(cloudTours) && cloudTours.length > 0) {
                         const newStr = JSON.stringify(cloudTours);
                         if (newStr !== lastLocalString.current) {
@@ -573,7 +574,6 @@ function App() {
             
             if (!isRemoteUpdating.current && currentStr !== lastLocalString.current) {
                 lastLocalString.current = currentStr;
-                lastLocalMutationTime.current = Date.now(); // Đánh dấu thời điểm thay đổi local
                 if (window.saveTournamentsToCloud) {
                     window.saveTournamentsToCloud(tournaments);
                 }
