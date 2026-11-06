@@ -65,21 +65,21 @@
                     })
                     .subscribe();
 
-                // Phát trực tiếp Broadcast tức thì & Lưu đệm Database
+                // Chỉ lưu/phát dữ liệu khi được gọi trực tiếp từ hành động của người dùng
                 let dbSaveTimeout = null;
-                window.saveTournamentsToCloud = async (toursData) => {
+                window.saveTournamentsToCloud = async (appDataState) => {
                     try {
                         channel.send({
                             type: 'broadcast',
                             event: 'tour_update',
-                            payload: { data: toursData }
+                            payload: { data: appDataState }
                         });
 
                         if (dbSaveTimeout) clearTimeout(dbSaveTimeout);
                         dbSaveTimeout = setTimeout(async () => {
                             await supabaseClient
                                 .from('tournaments')
-                                .upsert({ id: 'live_state', data: toursData, updated_at: new Date() });
+                                .upsert({ id: 'live_state', data: appDataState, updated_at: new Date() });
                         }, 300);
                     } catch (e) {
                         console.warn("Lỗi lưu Supabase Cloud:", e);
@@ -235,14 +235,14 @@ const defaultTourTemplate = (name, id, buyIn, rebuyPrice) => ({
     config: {
         clubName: 'SNAP CALL',
         subTitle: 'BOARD GAME & COFFEE',
-        name: name || 'MONTER STACK',
-        buyIn: buyIn || 100,
+        name: name || 'SNAP HYPER',
+        buyIn: buyIn || 90,
         currency: 'TOKEN',
         fee: 0,
         startingStack: 25000,
         maxPlayersPerTable: 10,
         allowRebuys: true,
-        rebuyPrice: rebuyPrice || 100,
+        rebuyPrice: rebuyPrice || 90,
         regEndLevel: 11,
         logoPosition: 'Center',
         logoSizePx: 80,
@@ -271,7 +271,8 @@ const defaultTourTemplate = (name, id, buyIn, rebuyPrice) => ({
         { place: 'Top 2', value: 6.5 },
         { place: 'Top 3', value: 4.5 },
         { place: 'Top 4', value: 3 },
-        { place: 'Top 5', value: 2 }
+        { place: 'Top 5', value: 2 },
+        { place: 'Top 6', value: 1 }
     ],
     soundsConfig: {
         nextLevel: 'Boxing Bell',
@@ -280,11 +281,11 @@ const defaultTourTemplate = (name, id, buyIn, rebuyPrice) => ({
         warning10s: 'Digital Beep'
     },
     gameStats: {
-        buyIns: 10,
-        eliminated: 0,
-        rebuys: 8,
-        currentStepIdx: 0,
-        secondsLeft: 1020,
+        buyIns: 9,
+        eliminated: 4,
+        rebuys: 5,
+        currentStepIdx: 3,
+        secondsLeft: 823,
         targetEndTime: null,
         isPaused: true
     }
@@ -540,7 +541,7 @@ function App() {
             } catch(e) {}
         }
         return {
-            tours: [defaultTourTemplate('MONTER STACK', 101, 100, 100)],
+            tours: [defaultTourTemplate('SNAP HYPER', 101, 90, 90)],
             presets: [],
             selectedTourId: 101
         };
@@ -552,13 +553,16 @@ function App() {
 
     const setSelectedTourId = (newTourId) => {
         userHasModified.current = true;
-        setAppState(prev => ({
-            ...prev,
-            selectedTourId: newTourId
-        }));
+        setAppState(prev => {
+            const nextState = { ...prev, selectedTourId: newTourId };
+            if (window.saveTournamentsToCloud) {
+                window.saveTournamentsToCloud(nextState);
+            }
+            return nextState;
+        });
     };
 
-    const activeTour = tournaments.find(t => t.id === selectedTourId) || tournaments[0] || defaultTourTemplate('MONTER STACK', 101, 100, 100);
+    const activeTour = tournaments.find(t => t.id === selectedTourId) || tournaments[0] || defaultTourTemplate('SNAP HYPER', 101, 90, 90);
 
     useEffect(() => {
         if (window.initCloudSync) {
@@ -590,6 +594,7 @@ function App() {
             
             if (userHasModified.current && !isRemoteUpdating.current && currentStr !== lastLocalString.current) {
                 lastLocalString.current = currentStr;
+                userHasModified.current = false;
                 if (window.saveTournamentsToCloud) {
                     window.saveTournamentsToCloud(appState);
                 }
@@ -631,61 +636,64 @@ function App() {
     const playSoundEffect = (soundType) => {
         try {
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            const now = ctx.currentTime;
+            const now = Date.now();
 
             if (soundType === 'Boxing Bell') {
-                [0, 0.15].forEach(delay => {
-                    const osc = ctx.createOscillator();
-                    const gain = ctx.createGain();
-                    osc.type = 'sine';
-                    osc.frequency.setValueAtTime(1200, now + delay);
-                    gain.gain.setValueAtTime(0.5, now + delay);
-                    gain.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.8);
-                    osc.connect(gain);
-                    gain.connect(ctx.destination);
-                    osc.start(now + delay);
-                    osc.stop(now + delay + 0.8);
+                [0, 150].forEach(delay => {
+                    setTimeout(() => {
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(1200, ctx.currentTime);
+                        gain.gain.setValueAtTime(0.5, ctx.currentTime);
+                        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.start();
+                        osc.stop(ctx.currentTime + 0.8);
+                    }, delay);
                 });
             } else if (soundType === 'Chime Bell') {
                 const osc = ctx.createOscillator();
                 const gain = ctx.createGain();
                 osc.type = 'sine';
-                osc.frequency.setValueAtTime(880, now);
-                gain.gain.setValueAtTime(0.4, now);
-                gain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+                osc.frequency.setValueAtTime(880, ctx.currentTime);
+                gain.gain.setValueAtTime(0.4, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.2);
                 osc.connect(gain);
                 gain.connect(ctx.destination);
-                osc.start(now);
-                osc.stop(now + 1.2);
+                osc.start();
+                osc.stop(ctx.currentTime + 1.2);
             } else if (soundType === 'Digital Beep') {
                 const osc = ctx.createOscillator();
                 const gain = ctx.createGain();
                 osc.type = 'square';
-                osc.frequency.setValueAtTime(1500, now);
-                gain.gain.setValueAtTime(0.2, now);
-                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                osc.frequency.setValueAtTime(1500, ctx.currentTime);
+                gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
                 osc.connect(gain);
                 gain.connect(ctx.destination);
-                osc.start(now);
-                osc.stop(now + 0.25);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.25);
             } else if (soundType === 'Whistle') {
                 const osc = ctx.createOscillator();
                 const gain = ctx.createGain();
                 osc.type = 'sine';
-                osc.frequency.setValueAtTime(2400, now);
-                osc.frequency.exponentialRampToValueAtTime(2800, now + 0.3);
-                gain.gain.setValueAtTime(0.4, now);
-                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                osc.frequency.setValueAtTime(2400, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(2800, ctx.currentTime + 0.3);
+                gain.gain.setValueAtTime(0.4, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
                 osc.connect(gain);
                 gain.connect(ctx.destination);
-                osc.start(now);
-                osc.stop(now + 0.4);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.4);
             }
         } catch (e) {
             console.log("Audio play error:", e);
         }
     };
 
+    // ĐỒNG BỘ ĐỒNG HỒ REALTIME THEO UNIX TIMESTAMP CHUẨN TẤT CẢ CÁC MÁY
     useEffect(() => {
         const timer = setInterval(() => {
             const now = Date.now();
@@ -904,8 +912,7 @@ function App() {
         newTour.gameStats.targetEndTime = null;
 
         isRemoteUpdating.current = false;
-        setAppState(prev => ({ ...prev, tours: [...prev.tours, newTour] }));
-        setSelectedTourId(newId);
+        setAppState(prev => ({ ...prev, tours: [...prev.tours, newTour], selectedTourId: newId }));
     };
 
     const removeTournament = (tourId) => {
@@ -917,14 +924,10 @@ function App() {
             userHasModified.current = true;
             isRemoteUpdating.current = false;
             const remaining = tournaments.filter(t => t.id !== tourId);
-            setAppState(prev => ({ ...prev, tours: remaining }));
-            if (selectedTourId === tourId) {
-                setSelectedTourId(remaining[0].id);
-            }
+            setAppState(prev => ({ ...prev, tours: remaining, selectedTourId: remaining[0].id }));
         }
     };
 
-    // THƯ VIỆN MẪU TOUR (PRESETS - LƯU TRỰC TIẾP VÀ ĐỒNG BỘ REALTIME UP SUPABASE)
     const saveCurrentTourAsPreset = () => {
         const presetName = prompt("Nhập tên để lưu mẫu Tour này (vd: Monster Stack 100k, High Roller 500k):", activeTour.config.name);
         if (!presetName) return;
@@ -1009,8 +1012,7 @@ function App() {
                     } else if (Array.isArray(parsedData) && parsedData.length > 0) {
                         userHasModified.current = true;
                         isRemoteUpdating.current = false;
-                        setAppState(prev => ({ ...prev, tours: parsedData }));
-                        setSelectedTourId(parsedData[0].id);
+                        setAppState(prev => ({ ...prev, tours: parsedData, selectedTourId: parsedData[0].id }));
                         alert("Đã nhập toàn bộ danh sách Tour thành công!");
                     } else {
                         alert("File JSON không hợp lệ!");
@@ -1092,7 +1094,6 @@ function App() {
         }, 300);
     };
 
-    // CHUỖI TĂNG BLIND CHUẨN POKER CHUYÊN NGHIỆP (TỰ ĐỘNG LÀM TRÒN LÊN HÀNG TRĂM, BỎ SỐ LẺ HÀNG CHỤC)
     const calculateNextProfessionalBlind = (currentBb) => {
         const standardSequence = [
             100, 200, 300, 400, 500, 600, 800, 
@@ -1114,7 +1115,6 @@ function App() {
             rawSb = Math.round(nextBb / 2);
         }
         
-        // Làm tròn SB lên bội số 100 gần nhất để loại bỏ số lẻ hàng chục (như 250, 750)
         let roundedSb = rawSb;
         if (rawSb >= 100 && rawSb % 100 !== 0) {
             roundedSb = Math.ceil(rawSb / 100) * 100;
@@ -1154,7 +1154,6 @@ function App() {
         updateActiveTour('blinds', newBlinds);
     };
 
-    // KÉO THẢ DI CHUYỂN LEVEL (DRAG & DROP)
     const handleDragStart = (e, index) => {
         setDraggedBlindIdx(index);
         e.dataTransfer.effectAllowed = "move";
@@ -1876,9 +1875,7 @@ function App() {
 
                 {activeView === 'player-tv' && (
                     <div className="w-full space-y-6">
-                        {tournaments.map((tour) => (
-                            <TournamentTVCard key={tour.id} tour={tour} openSinglePopout={openSinglePopoutWindow} />
-                        ))}
+                        <TournamentTVCard tour={activeTour} openSinglePopout={openSinglePopoutWindow} />
                     </div>
                 )}
             </main>
