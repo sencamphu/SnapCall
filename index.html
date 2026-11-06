@@ -541,7 +541,7 @@ function App() {
         return [defaultTourTemplate('MONTER STACK', 101, 100, 100)];
     });
 
-    // THƯ VIỆN NẠP & LƯU MẪU TOUR TRỰC TIẾP TRÊN WEB
+    // THƯ VIỆN NẠP & LƯU MẪU TOUR TRỰC TIẾP TRÊN WEB (PRESETS)
     const [savedPresets, setSavedPresets] = useState(() => {
         const saved = localStorage.getItem('poker_presets_library');
         if (saved) {
@@ -584,7 +584,6 @@ function App() {
         }
     }, []);
 
-    // CÁC HÀM XỬ LÝ MẪU TOUR PRESET
     const handleSaveCurrentAsPreset = () => {
         const presetName = prompt("Nhập tên lưu cho mẫu Tour này:", activeTour.config.name);
         if (presetName) {
@@ -664,98 +663,6 @@ function App() {
         }
     };
 
-    // POS HANDLER: TỰ ĐỘNG GỘP BILL HOẶC THANH TOÁN NGAY
-    const handleAddOrder = (payNowImmediately) => {
-        if (!customerPhone.trim()) {
-            alert("Vui lòng nhập 4 số cuối hoặc SĐT khách hàng!");
-            return;
-        }
-
-        const newItem = {
-            id: Date.now(),
-            type: selectedItemType,
-            title: itemNote ? `${selectedItemType} (${itemNote})` : selectedItemType,
-            price: Number(itemPrice) || 0,
-            timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
-        };
-
-        if (payNowImmediately) {
-            alert(`ĐÃ THANH TOÁN NGAY HÓA ĐƠN!\nKhách: ${customerName || customerPhone}\nMón: ${newItem.title}\nSố tiền: ${newItem.price.toLocaleString()} VNĐ\nHình thức: ${paymentMethod}`);
-        } else {
-            setPendingOrders(prev => {
-                const existingIdx = prev.findIndex(o => o.phone === customerPhone.trim());
-                if (existingIdx >= 0) {
-                    const updated = [...prev];
-                    updated[existingIdx].items.push(newItem);
-                    updated[existingIdx].totalAmount += newItem.price;
-                    return updated;
-                } else {
-                    return [...prev, {
-                        phone: customerPhone.trim(),
-                        name: customerName.trim() || 'Khách hàng',
-                        createdAt: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-                        items: [newItem],
-                        totalAmount: newItem.price
-                    }];
-                }
-            });
-            alert(`Đã thêm vào giỏ hàng chờ thanh toán của SĐT: ${customerPhone}`);
-        }
-
-        if (selectedItemType === 'Buyin') {
-            handleStatChange('buyIns', 1);
-        } else if (selectedItemType === 'Rebuy') {
-            handleStatChange('rebuys', 1);
-        }
-
-        setItemNote('');
-    };
-
-    const handleCheckoutPendingOrder = (orderPhone) => {
-        const order = pendingOrders.find(o => o.phone === orderPhone);
-        if (!order) return;
-
-        if (window.confirm(`XÁC NHẬN THANH TOÁN GỘP BILL CHO KHÁCH: ${order.name} (${order.phone})\nTổng tiền: ${order.totalAmount.toLocaleString()} VNĐ\nHình thức: ${paymentMethod}?`)) {
-            alert(`IN HÓA ĐƠN TỔNG THÀNH CÔNG!\nKhách: ${order.name} - SĐT: ${order.phone}\nTổng các mục (${order.items.length} món): ${order.totalAmount.toLocaleString()} VNĐ`);
-            setPendingOrders(prev => prev.filter(o => o.phone !== orderPhone));
-        }
-    };
-
-    // PRESET LIBRARY HANDLERS
-    const handleSaveCurrentAsPreset = () => {
-        const presetName = prompt("Nhập tên gợi nhớ cho mẫu Tour này:", activeTour.config.name);
-        if (presetName) {
-            const newPreset = {
-                id: `preset_${Date.now()}`,
-                name: presetName,
-                template: JSON.parse(JSON.stringify(activeTour))
-            };
-            setSavedPresets(prev => [...prev, newPreset]);
-            alert(`Đã lưu mẫu "${presetName}" vào thư viện web!`);
-        }
-    };
-
-    const handleLoadPreset = (presetId) => {
-        const preset = savedPresets.find(p => p.id === presetId);
-        if (preset && window.confirm(`Nạp cấu hình mẫu "${preset.name}" cho tour hiện tại?`)) {
-            setTournaments(prev => prev.map(t => {
-                if (t.id === selectedTourId) {
-                    return {
-                        ...preset.template,
-                        id: selectedTourId,
-                        gameStats: {
-                            ...preset.template.gameStats,
-                            isPaused: true,
-                            targetEndTime: null
-                        }
-                    };
-                }
-                return t;
-            }));
-            alert(`Đã nạp mẫu "${preset.name}" thành công!`);
-        }
-    };
-
     const playSoundEffect = (soundType) => {
         try {
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -818,7 +725,11 @@ function App() {
         const timer = setInterval(() => {
             const now = Date.now();
             setTournaments(prevTours => prevTours.map(tour => {
-                if (tour.gameStats.isPaused || !tour.gameStats.targetEndTime) {
+                if (tour.gameStats.isPaused) {
+                    return tour;
+                }
+
+                if (!tour.gameStats.targetEndTime) {
                     return tour;
                 }
 
@@ -934,14 +845,25 @@ function App() {
         setTournaments(prev => prev.map(t => {
             if (t.id === tourId) {
                 const willPause = !t.gameStats.isPaused;
-                return {
-                    ...t,
-                    gameStats: {
-                        ...t.gameStats,
-                        isPaused: willPause,
-                        targetEndTime: willPause ? null : now + (t.gameStats.secondsLeft * 1000)
-                    }
-                };
+                if (willPause) {
+                    return {
+                        ...t,
+                        gameStats: {
+                            ...t.gameStats,
+                            isPaused: true,
+                            targetEndTime: null
+                        }
+                    };
+                } else {
+                    return {
+                        ...t,
+                        gameStats: {
+                            ...t.gameStats,
+                            isPaused: false,
+                            targetEndTime: now + (t.gameStats.secondsLeft * 1000)
+                        }
+                    };
+                }
             }
             return t;
         }));
@@ -1067,7 +989,7 @@ function App() {
                 <script src="https://cdn.tailwindcss.com"><\/script>
                 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"><\/script>
                 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"><\/script>
-                <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"><\/script>
+                <script crossorigin src="https://unpkg/@babel/standalone/babel.min.js"><\/script>
                 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cinzel:wght@700;900&family=Impact&family=Montserrat:wght@500;600;700;800;900&family=Oswald:wght@700&family=Roboto+Mono:wght@700&family=Teko:wght@700&display=swap" rel="stylesheet">
                 <style>
                     html, body { height: 100vh; width: 100vw; margin: 0; padding: 0; background-color: #070709; color: #fff; font-family: 'Montserrat', sans-serif; overflow: hidden; }
@@ -1253,22 +1175,16 @@ function App() {
 
                     <div className="flex items-center space-x-1 bg-black/50 p-1 rounded-lg border border-gold/30">
                         <button 
-                            onClick={() => setActiveView('player-tv')}
-                            className={`px-3 py-1 rounded text-xs font-bold transition cursor-pointer ${activeView === 'player-tv' ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-black' : 'text-gray-300 hover:text-white'}`}
-                        >
-                            <i className="fa-solid fa-desktop"></i> Player View
-                        </button>
-                        <button 
-                            onClick={() => setActiveView('pos')}
-                            className={`px-3 py-1 rounded text-xs font-bold transition cursor-pointer ${activeView === 'pos' ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-black' : 'text-gray-300 hover:text-white'}`}
-                        >
-                            <i className="fa-solid fa-cart-shopping"></i> POS & Gộp Bill ({pendingOrders.length})
-                        </button>
-                        <button 
                             onClick={openAdminSetup}
                             className={`px-3 py-1 rounded text-xs font-bold transition cursor-pointer ${activeView === 'admin' ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-black' : 'text-gray-300 hover:text-white'}`}
                         >
                             <i className="fa-solid fa-sliders"></i> Set up
+                        </button>
+                        <button 
+                            onClick={() => setActiveView('player-tv')}
+                            className={`px-3 py-1 rounded text-xs font-bold transition cursor-pointer ${activeView === 'player-tv' ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-black' : 'text-gray-300 hover:text-white'}`}
+                        >
+                            <i className="fa-solid fa-desktop"></i> Player View
                         </button>
                         {isAdminLoggedIn && (
                             <button onClick={handleLogout} className="px-2 py-1 text-red-400 hover:text-red-300 text-xs font-bold" title="Đăng xuất">
@@ -1319,157 +1235,6 @@ function App() {
             )}
 
             <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 flex flex-col justify-center my-auto">
-                {/* TAB POS BÁN HÀNG & GỘP BILL */}
-                {activeView === 'pos' && (
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6 w-full">
-                        {/* CỘT TRÁI: NHẬP ORDER */}
-                        <div className="md:col-span-5 bg-black/70 border border-gold/40 rounded-2xl p-5 shadow-2xl backdrop-blur-md space-y-4">
-                            <h3 className="text-base font-bold text-gold-bright uppercase flex items-center gap-2 border-b border-gray-800 pb-2">
-                                <i className="fa-solid fa-cash-register"></i> Lập Order & Đăng Ký Buy-in
-                            </h3>
-
-                            <div className="space-y-3 text-xs sm:text-sm">
-                                <div>
-                                    <label className="block text-gray-400 font-semibold mb-1">Số điện thoại / 4 Số cuối *</label>
-                                    <input 
-                                        type="text" 
-                                        value={customerPhone} 
-                                        onChange={(e) => setCustomerPhone(e.target.value)} 
-                                        placeholder="Gõ SĐT khách (vd: 0909123456 hoặc 3456)" 
-                                        className="w-full bg-gray-900 border border-gold/40 rounded-lg px-3 py-2 text-amber-300 font-bold" 
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-gray-400 font-semibold mb-1">Tên Khách Hàng (Tùy chọn)</label>
-                                    <input 
-                                        type="text" 
-                                        value={customerName} 
-                                        onChange={(e) => setCustomerName(e.target.value)} 
-                                        placeholder="Nhập tên khách" 
-                                        className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white font-bold" 
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-gray-400 font-semibold mb-1">Loại Món / Dịch Vụ</label>
-                                    <div className="grid grid-cols-4 gap-2">
-                                        {['Buyin', 'Rebuy', 'Food', 'Drink'].map(type => (
-                                            <button 
-                                                key={type} 
-                                                onClick={() => {
-                                                    setSelectedItemType(type);
-                                                    if (type === 'Buyin') setItemPrice(activeTour.config.buyIn * 1000 || 100000);
-                                                    else if (type === 'Rebuy') setItemPrice(activeTour.config.rebuyPrice * 1000 || 100000);
-                                                }}
-                                                className={`py-2 rounded-lg font-bold text-xs transition ${selectedItemType === type ? 'bg-amber-500 text-black' : 'bg-gray-800 text-gray-300'}`}
-                                            >
-                                                {type}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <label className="block text-gray-400 font-semibold mb-1">Số Tiền (VNĐ)</label>
-                                        <input 
-                                            type="number" 
-                                            value={itemPrice} 
-                                            onChange={(e) => setItemPrice(e.target.value)} 
-                                            className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-emerald-400 font-bold" 
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-gray-400 font-semibold mb-1">Ghi chú (Tên món)</label>
-                                        <input 
-                                            type="text" 
-                                            value={itemNote} 
-                                            onChange={(e) => setItemNote(e.target.value)} 
-                                            placeholder="vd: Mì tôm bò / Cafe" 
-                                            className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white" 
-                                        />
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="block text-gray-400 font-semibold mb-1">Hình Thức Thanh Toán</label>
-                                    <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-amber-300 font-bold">
-                                        <option value="Tiền mặt">💵 Tiền mặt</option>
-                                        <option value="QR">📱 Chuyển khoản QR</option>
-                                        <option value="Đổi điểm">🎁 Đổi điểm / Linh Thạch</option>
-                                    </select>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-3 pt-2">
-                                    <button 
-                                        onClick={() => handleAddOrder(false)} 
-                                        className="bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 rounded-xl shadow text-xs transition"
-                                    >
-                                        📥 THÊM VÀO GIỎ (THANH TOÁN SAU)
-                                    </button>
-                                    <button 
-                                        onClick={() => handleAddOrder(true)} 
-                                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow text-xs transition"
-                                    >
-                                        🖨️ THANH TOÁN NGAY (IN BILL)
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* CỘT PHẢI: GIỎ HÀNG GỘP BILL CHỜ THANH TOÁN */}
-                        <div className="md:col-span-7 bg-black/70 border border-gold/40 rounded-2xl p-5 shadow-2xl backdrop-blur-md space-y-4">
-                            <h3 className="text-base font-bold text-gold-bright uppercase flex items-center justify-between border-b border-gray-800 pb-2">
-                                <span><i className="fa-solid fa-clock-rotate-left"></i> Chờ Thanh Toán Gộp Bill ({pendingOrders.length})</span>
-                                <span className="text-xs text-gray-400 font-normal">Tự động gộp Buyin + Rebuy + Nước</span>
-                            </h3>
-
-                            {pendingOrders.length === 0 ? (
-                                <div className="text-center py-12 text-gray-500 text-sm">Chưa có khách nào trong danh sách chờ thanh toán.</div>
-                            ) : (
-                                <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
-                                    {pendingOrders.map((order) => (
-                                        <div key={order.phone} className="bg-black/60 border border-gold/30 rounded-xl p-4 flex flex-col justify-between space-y-3">
-                                            <div className="flex justify-between items-center border-b border-gray-800 pb-2">
-                                                <div>
-                                                    <span className="font-bold text-gold-bright text-base">{order.name}</span>
-                                                    <span className="text-xs text-gray-400 ml-2">({order.phone})</span>
-                                                </div>
-                                                <span className="text-xs bg-amber-950 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded font-bold">Vào từ: {order.createdAt}</span>
-                                            </div>
-
-                                            <div className="space-y-1.5 text-xs text-gray-300">
-                                                {order.items.map((item, idx) => (
-                                                    <div key={idx} className="flex justify-between items-center bg-gray-900/60 px-3 py-1.5 rounded border border-gray-800">
-                                                        <span>{idx + 1}. {item.title} <span className="text-[10px] text-gray-500">({item.timestamp})</span></span>
-                                                        <span className="font-bold text-white">{item.price.toLocaleString()} VNĐ</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-
-                                            <div className="flex justify-between items-center pt-2 border-t border-gray-800">
-                                                <div>
-                                                    <span className="text-xs text-gray-400">TỔNG GỘP BILL:</span>
-                                                    <span className="text-lg font-black text-emerald-400 ml-2">{order.totalAmount.toLocaleString()} VNĐ</span>
-                                                </div>
-                                                <button 
-                                                    onClick={() => handleCheckoutPendingOrder(order.phone)} 
-                                                    className="bg-gradient-to-r from-amber-500 to-yellow-600 text-black font-extrabold px-4 py-2 rounded-lg shadow text-xs hover:brightness-110 transition cursor-pointer"
-                                                >
-                                                    🖨️ IN BILL & THANH TOÁN TỔNG
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {/* TAB SET UP ADMIN */}
                 {activeView === 'admin' && (
                     <div className="space-y-6 w-full">
                         {/* THƯ VIỆN NẠP & LƯU MẪU TOUR TRỰC TIẾP TRÊN WEB */}
