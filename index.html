@@ -535,20 +535,28 @@ function App() {
         if (saved) {
             try { 
                 const parsed = JSON.parse(saved);
-                if (Array.isArray(parsed) && parsed.length > 0) return { tours: parsed, presets: [] };
+                if (Array.isArray(parsed) && parsed.length > 0) return { tours: parsed, presets: [], selectedTourId: parsed[0].id };
                 if (parsed && parsed.tours) return parsed;
             } catch(e) {}
         }
         return {
             tours: [defaultTourTemplate('MONTER STACK', 101, 100, 100)],
-            presets: []
+            presets: [],
+            selectedTourId: 101
         };
     });
 
     const tournaments = appState.tours || [];
     const presets = appState.presets || [];
+    const selectedTourId = appState.selectedTourId || tournaments[0]?.id || 101;
 
-    const [selectedTourId, setSelectedTourId] = useState(() => tournaments[0]?.id || 101);
+    const setSelectedTourId = (newTourId) => {
+        userHasModified.current = true;
+        setAppState(prev => ({
+            ...prev,
+            selectedTourId: newTourId
+        }));
+    };
 
     const activeTour = tournaments.find(t => t.id === selectedTourId) || tournaments[0] || defaultTourTemplate('MONTER STACK', 101, 100, 100);
 
@@ -559,16 +567,13 @@ function App() {
                     if (cloudState) {
                         let normalizedState = cloudState;
                         if (Array.isArray(cloudState)) {
-                            normalizedState = { tours: cloudState, presets: [] };
+                            normalizedState = { tours: cloudState, presets: [], selectedTourId: cloudState[0]?.id || 101 };
                         }
                         const newStr = JSON.stringify(normalizedState);
                         if (newStr !== lastLocalString.current) {
                             isRemoteUpdating.current = true;
                             lastLocalString.current = newStr;
                             setAppState(normalizedState);
-                            if (normalizedState.tours && !normalizedState.tours.some(t => t.id === selectedTourId)) {
-                                setSelectedTourId(normalizedState.tours[0]?.id || 101);
-                            }
                             setTimeout(() => { isRemoteUpdating.current = false; }, 300);
                         }
                     }
