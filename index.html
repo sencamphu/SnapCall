@@ -530,6 +530,7 @@ function App() {
     const [draggedBlindIdx, setDraggedBlindIdx] = useState(null);
     const [searchPhoneInput, setSearchPhoneInput] = useState('');
     const [searchResultPlayer, setSearchResultPlayer] = useState(null);
+    const [showFontSizesCollapse, setShowFontSizesCollapse] = useState(false);
     
     // ĐỒNG HỒ ĐẾM NGƯỢC GIỜ KHAI MẠC REALTIME
     const [preTourCountdownSecs, setPreTourCountdownSecs] = useState(0);
@@ -575,16 +576,16 @@ function App() {
         setDraftConfigState(JSON.parse(JSON.stringify(activeTour)));
     }, [selectedTourId, activeTour]);
 
-    // TÍNH TOÁN VÀ ĐẾM NGƯỢC REALTIME CHO ĐỒNG HỒ KHAI MẠC
+    // TÍNH TOÁN VÀ ĐẾM NGƯỢC REALTIME CHO ĐỒNG HỒ KHAI MẠC (ĐÃ FIX LỖI KHÔNG BỊ VÒNG LẶP TRẢ VỀ 23:59:59)
     useEffect(() => {
         const calcRemaining = () => {
             const scheduledStr = activeTour.config.scheduledStartTime || '13:00';
             const [targetHrs, targetMins] = scheduledStr.split(':').map(Number);
             const now = new Date();
             const targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), targetHrs, targetMins, 0);
-            let diffSecs = Math.floor((targetDate.getTime() - now.getTime()) / 1000);
-            if (diffSecs < 0) diffSecs += 86400;
-            return diffSecs;
+            
+            const diffSecs = Math.floor((targetDate.getTime() - now.getTime()) / 1000);
+            return diffSecs; // Trả về âm nếu đã qua mốc giờ khai mạc trong ngày
         };
 
         setPreTourCountdownSecs(calcRemaining());
@@ -607,6 +608,7 @@ function App() {
         });
     };
 
+    // ĐỒNG BỘ MẠNH MẼ KHẮC PHỤC THIẾT BỊ 2 HIỂN THỊ THIẾU TOUR
     useEffect(() => {
         if (window.initCloudSync) {
             window.initCloudSync(
@@ -620,7 +622,15 @@ function App() {
                         if (newStr !== lastLocalString.current) {
                             isRemoteUpdating.current = true;
                             lastLocalString.current = newStr;
-                            setAppState(normalizedState);
+                            setAppState(prev => {
+                                // Giữ lại selectedTourId nếu vẫn tồn tại trong danh sách mới
+                                const tourExists = normalizedState.tours?.some(t => t.id === prev.selectedTourId);
+                                const validTourId = tourExists ? prev.selectedTourId : (normalizedState.tours[0]?.id || 101);
+                                return {
+                                    ...normalizedState,
+                                    selectedTourId: validTourId
+                                };
+                            });
                             setTimeout(() => { isRemoteUpdating.current = false; }, 300);
                         }
                     }
@@ -1485,7 +1495,7 @@ function App() {
                                         </div>
                                     </div>
 
-                                    {/* KHU VỰC ĐỒNG HỒ ĐẾM NGƯỢC GIỜ KHAI MẠC TOUR (SỬA LỖI ĐẾM NGƯỢC REALTIME) */}
+                                    {/* KHU VỰC ĐỒNG HỒ ĐẾM NGƯỢC GIỜ KHAI MẠC TOUR (ĐÃ SỬA CHUẨN REALTIME HIỆN THỊ LIÊN TỤC KHÔNG BỊ RESETS) */}
                                     {preTourCountdownSecs > 0 ? (
                                         <div className="bg-gradient-to-b from-amber-950/70 to-black/90 border border-gold/40 rounded-2xl p-4 text-center">
                                             <div className="text-amber-400 font-bold text-xs uppercase mb-1 flex items-center justify-center gap-1.5">
@@ -2002,44 +2012,53 @@ function App() {
                                             </div>
                                         </div>
 
+                                        {/* NÚT THU GỌN BẬT/ẨN CHỈNH KÍCH THƯỚC FONT PIXEL */}
                                         <div className="pt-2 border-t border-gray-800 space-y-3">
-                                            <div className="text-amber-300 font-extrabold uppercase tracking-wider text-xs flex items-center gap-2">
-                                                <i className="fa-solid fa-text-height"></i> Tùy Chỉnh Kích Thước Pixel Font TV:
-                                            </div>
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-black/40 p-4 rounded-xl border border-gray-800">
-                                                <div>
-                                                    <span className="text-xs text-gray-400 block mb-1">Title Snapcall (px)</span>
-                                                    <input type="number" value={fontCustomSizes.brandPx} onChange={(e)=> updateDraftFontSize('brandPx', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white font-bold text-center" />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowFontSizesCollapse(!showFontSizesCollapse)}
+                                                className="w-full py-2.5 px-3 bg-gray-900/90 hover:bg-gray-800 border border-amber-500/40 rounded-xl text-amber-300 text-xs font-bold flex justify-between items-center transition cursor-pointer"
+                                            >
+                                                <span>⚙️ {showFontSizesCollapse ? 'Ẩn Tùy Chỉnh Kích Thước Pixel Font TV' : 'Mở Tùy Chỉnh Kích Thước Pixel Font TV (Nâng Cao)'}</span>
+                                                <span className="text-xs">{showFontSizesCollapse ? '▲ Ẩn' : '▼ Mở'}</span>
+                                            </button>
+
+                                            {showFontSizesCollapse && (
+                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-black/40 p-4 rounded-xl border border-gray-800 animate-fadeIn">
+                                                    <div>
+                                                        <span className="text-xs text-gray-400 block mb-1">Title Snapcall (px)</span>
+                                                        <input type="number" value={fontCustomSizes.brandPx} onChange={(e)=> updateDraftFontSize('brandPx', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white font-bold text-center" />
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-xs text-gray-400 block mb-1">Header Title Tour (px)</span>
+                                                        <input type="number" value={fontCustomSizes.headerPx} onChange={(e)=> updateDraftFontSize('headerPx', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white font-bold text-center" />
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-xs text-gray-400 block mb-1">Sub-Header (px)</span>
+                                                        <input type="number" value={fontCustomSizes.subHeaderPx} onChange={(e)=> updateDraftFontSize('subHeaderPx', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white font-bold text-center" />
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-xs text-gray-400 block mb-1">Level Badge (px)</span>
+                                                        <input type="number" value={fontCustomSizes.levelBadgePx} onChange={(e)=> updateDraftFontSize('levelBadgePx', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white font-bold text-center" />
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-xs text-amber-300 font-bold block mb-1">Timer Countdown (px)</span>
+                                                        <input type="number" value={fontCustomSizes.timerPx} onChange={(e)=> updateDraftFontSize('timerPx', e.target.value)} className="w-full bg-gray-900 border border-amber-500/50 rounded p-2 text-amber-300 font-extrabold text-center" />
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-xs text-gray-400 block mb-1">Blinds & Ante (px)</span>
+                                                        <input type="number" value={fontCustomSizes.blindsPx} onChange={(e)=> updateDraftFontSize('blindsPx', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white font-bold text-center" />
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-xs text-gray-400 block mb-1">Next Level (px)</span>
+                                                        <input type="number" value={fontCustomSizes.nextLevelPx} onChange={(e)=> updateDraftFontSize('nextLevelPx', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white font-bold text-center" />
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-xs text-gray-400 block mb-1">Players / Stack (px)</span>
+                                                        <input type="number" value={fontCustomSizes.statsPx} onChange={(e)=> updateDraftFontSize('statsPx', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white font-bold text-center" />
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <span className="text-xs text-gray-400 block mb-1">Header Title Tour (px)</span>
-                                                    <input type="number" value={fontCustomSizes.headerPx} onChange={(e)=> updateDraftFontSize('headerPx', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white font-bold text-center" />
-                                                </div>
-                                                <div>
-                                                    <span className="text-xs text-gray-400 block mb-1">Sub-Header (px)</span>
-                                                    <input type="number" value={fontCustomSizes.subHeaderPx} onChange={(e)=> updateDraftFontSize('subHeaderPx', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white font-bold text-center" />
-                                                </div>
-                                                <div>
-                                                    <span className="text-xs text-gray-400 block mb-1">Level Badge (px)</span>
-                                                    <input type="number" value={fontCustomSizes.levelBadgePx} onChange={(e)=> updateDraftFontSize('levelBadgePx', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white font-bold text-center" />
-                                                </div>
-                                                <div>
-                                                    <span className="text-xs text-amber-300 font-bold block mb-1">Timer Countdown (px)</span>
-                                                    <input type="number" value={fontCustomSizes.timerPx} onChange={(e)=> updateDraftFontSize('timerPx', e.target.value)} className="w-full bg-gray-900 border border-amber-500/50 rounded p-2 text-amber-300 font-extrabold text-center" />
-                                                </div>
-                                                <div>
-                                                    <span className="text-xs text-gray-400 block mb-1">Blinds & Ante (px)</span>
-                                                    <input type="number" value={fontCustomSizes.blindsPx} onChange={(e)=> updateDraftFontSize('blindsPx', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white font-bold text-center" />
-                                                </div>
-                                                <div>
-                                                    <span className="text-xs text-gray-400 block mb-1">Next Level (px)</span>
-                                                    <input type="number" value={fontCustomSizes.nextLevelPx} onChange={(e)=> updateDraftFontSize('nextLevelPx', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white font-bold text-center" />
-                                                </div>
-                                                <div>
-                                                    <span className="text-xs text-gray-400 block mb-1">Players / Stack (px)</span>
-                                                    <input type="number" value={fontCustomSizes.statsPx} onChange={(e)=> updateDraftFontSize('statsPx', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white font-bold text-center" />
-                                                </div>
-                                            </div>
+                                            )}
                                         </div>
                                     </div>
                                 )}
