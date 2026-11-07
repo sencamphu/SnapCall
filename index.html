@@ -36,7 +36,6 @@
                 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
                 onSyncStatusChange(true);
 
-                // Nạp dữ liệu mới nhất từ Supabase ngay khi mở ứng dụng
                 const fetchData = async () => {
                     const { data, error } = await supabaseClient
                         .from('tournaments')
@@ -50,7 +49,6 @@
                 };
                 fetchData();
 
-                // Đăng ký nhận thông tin Realtime Broadcast + Postgres Changes
                 const channel = supabaseClient
                     .channel('room_poker_live', { config: { broadcast: { self: false } } })
                     .on('postgres_changes', { event: '*', schema: 'public', table: 'tournaments' }, payload => {
@@ -65,7 +63,6 @@
                     })
                     .subscribe();
 
-                // Chỉ lưu/phát dữ liệu khi được gọi trực tiếp từ hành động của người dùng
                 let dbSaveTimeout = null;
                 window.saveTournamentsToCloud = async (appDataState) => {
                     try {
@@ -305,7 +302,6 @@ const defaultTourTemplate = (name, id, buyIn, rebuyPrice) => ({
     }
 });
 
-// STANDALONE PLAYER TV VIEW (MÀN HÌNH ĐỒNG HỒ TV NGUYÊN BẢN TRƯỚC ĐÓ)
 function StandalonePlayerTVCard({ tour, openSinglePopout, isPopoutWindow }) {
     const currentStep = tour.blinds[tour.gameStats.currentStepIdx] || tour.blinds[0];
 
@@ -527,7 +523,6 @@ function StandalonePlayerTVCard({ tour, openSinglePopout, isPopoutWindow }) {
     );
 }
 
-// MỤC 1: BẢNG ELO VÀ TOUR ĐANG CHẠY CHUNG MỘT MÀN HÌNH
 function TournamentTVDashboard({ tour, playersList }) {
     const currentStep = tour.blinds[tour.gameStats.currentStepIdx] || tour.blinds[0];
 
@@ -536,7 +531,6 @@ function TournamentTVDashboard({ tour, playersList }) {
     const [searchPerformed, setSearchPerformed] = useState(false);
     const [scheduledSecsLeft, setScheduledSecsLeft] = useState(0);
 
-    // Tính toán đếm ngược đến Giờ Khai Mạc
     useEffect(() => {
         if (!tour.config.enableScheduledCountdown || !tour.config.scheduledTime) return;
 
@@ -637,7 +631,6 @@ function TournamentTVDashboard({ tour, playersList }) {
                 backgroundPosition: 'center'
             }}
         >
-            {/* Header CLB & Tên Tour */}
             <div className="text-center mb-4 border-b border-gold/20 pb-3">
                 {isLogoCenter && (
                     <div className="flex flex-col items-center justify-center mb-1">
@@ -673,13 +666,8 @@ function TournamentTVDashboard({ tour, playersList }) {
                 </div>
             </div>
 
-            {/* BỐ CỤC CHÍNH: BÊN TRÁI (DASHBOARD TOUR) - BÊN PHẢI (BẢNG ELO) */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start flex-1 my-auto">
-                
-                {/* BÊN TRÁI: DASHBOARD TOUR ĐANG CHẠY / ĐẾM NGƯỢC CHỜ KHAI MẠC (60% Width) */}
                 <div className="lg:col-span-7 flex flex-col justify-between h-full bg-black/40 p-4 rounded-2xl border border-gold/20">
-                    
-                    {/* TRẠNG THÁI: CHỜ KHAI MẠC */}
                     {tour.config.enableScheduledCountdown && scheduledSecsLeft > 0 ? (
                         <div className="flex flex-col items-center justify-center py-10 my-auto text-center space-y-4">
                             <div className="inline-block border border-gold/50 rounded-full px-6 py-1 bg-amber-500/10 text-gold font-bold tracking-widest uppercase text-sm">
@@ -696,10 +684,7 @@ function TournamentTVDashboard({ tour, playersList }) {
                             </div>
                         </div>
                     ) : (
-                        /* TRẠNG THÁI: GAME DASHBOARD ĐANG CHẠY */
                         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center h-full">
-                            
-                            {/* Chỉ số Players / Stacks */}
                             <div className="md:col-span-4 space-y-3 text-left pl-2 border-l-2 border-gold/30" style={{ fontSize: `${fontSizes.statsPx || 18}px` }}>
                                 <div>
                                     <div className="text-gray-400 font-semibold text-[10px] tracking-wider uppercase mb-0.5">PLAYERS</div>
@@ -732,7 +717,6 @@ function TournamentTVDashboard({ tour, playersList }) {
                                 </div>
                             </div>
 
-                            {/* Đồng Hồ & Blinds */}
                             <div className="md:col-span-8 text-center space-y-3">
                                 <div className="inline-block border border-gold/40 rounded-xl px-5 py-1 bg-black/60 shadow">
                                     <span className="text-xl font-bold text-gray-200 tracking-widest uppercase">
@@ -768,11 +752,9 @@ function TournamentTVDashboard({ tour, playersList }) {
                                     Next: <span className="text-white font-semibold">{getNextLevelInfo(tour)}</span>
                                 </div>
                             </div>
-
                         </div>
                     )}
 
-                    {/* Prize Pool & Payouts */}
                     <div className="mt-4 pt-3 border-t border-gray-800 flex flex-wrap justify-between items-center bg-black/60 p-3 rounded-xl">
                         <div>
                             <span className="text-xs text-gray-400 font-bold uppercase block">TOTAL PRIZE POOL</span>
@@ -787,13 +769,9 @@ function TournamentTVDashboard({ tour, playersList }) {
                             ))}
                         </div>
                     </div>
-
                 </div>
 
-                {/* BÊN PHẢI: BẢNG XẾP HẠNG ELO & TRA CỨU SĐT */}
                 <div className="lg:col-span-5 flex flex-col justify-between h-full space-y-4">
-                    
-                    {/* KHUNG BẢNG ELO */}
                     <div className="bg-black/60 border border-gold/40 rounded-2xl p-4 shadow-xl flex-1 flex flex-col justify-between">
                         <div>
                             <div className="flex justify-between items-center border-b border-gold/30 pb-2 mb-3">
@@ -805,7 +783,6 @@ function TournamentTVDashboard({ tour, playersList }) {
                                 </span>
                             </div>
 
-                            {/* TABLE HEADER */}
                             <div className="grid grid-cols-12 text-[11px] font-bold text-gray-400 uppercase py-1.5 px-2 bg-gray-900/80 rounded-lg mb-2">
                                 <div className="col-span-2 text-center">HẠNG</div>
                                 <div className="col-span-5 text-left">TÊN HỘI VIÊN</div>
@@ -813,7 +790,6 @@ function TournamentTVDashboard({ tour, playersList }) {
                                 <div className="col-span-3 text-right">QUÝ {currentQuarter}</div>
                             </div>
 
-                            {/* TABLE BODY */}
                             <div className="space-y-1.5 max-h-[420px] overflow-y-auto pr-1">
                                 {displayPlayers.map((player, idx) => {
                                     const rank = idx + 1;
@@ -844,7 +820,6 @@ function TournamentTVDashboard({ tour, playersList }) {
                         </div>
                     </div>
 
-                    {/* Ô TRA CỨU ELO BẰNG 4 SỐ CUỐI SĐT */}
                     <div className="bg-black/70 border border-gold/30 rounded-2xl p-3 shadow-lg space-y-2">
                         <div className="text-xs font-bold text-gold uppercase flex items-center gap-1.5">
                             <i className="fa-solid fa-magnifying-glass"></i> Tra Cứu Thứ Hạng Bằng 4 Số Cuối SĐT:
@@ -868,7 +843,6 @@ function TournamentTVDashboard({ tour, playersList }) {
                             </button>
                         </div>
 
-                        {/* KẾT QUẢ TRA CỨU SĐT */}
                         {searchPerformed && (
                             <div className="mt-2 pt-2 border-t border-gray-800 text-xs">
                                 {searchResult ? (
@@ -890,12 +864,9 @@ function TournamentTVDashboard({ tour, playersList }) {
                             </div>
                         )}
                     </div>
-
                 </div>
-
             </div>
 
-            {/* FOOTER BẢNG DASHBOARD */}
             <div className="mt-4 pt-2 border-t border-gray-800/80 flex justify-between items-center text-[10px] text-gray-500 font-medium">
                 <div>SNAP CALL • BOARD GAME & COFFEE • EST. 2026</div>
                 <div>Powered by Snap Call All-In-One</div>
@@ -947,6 +918,9 @@ function App() {
         };
     });
 
+    const [draftTour, setDraftTour] = useState(null);
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
     const tournaments = appState.tours || [];
     const presets = appState.presets || [];
     const selectedTourId = appState.selectedTourId || tournaments[0]?.id || 101;
@@ -963,6 +937,11 @@ function App() {
     };
 
     const activeTour = tournaments.find(t => t.id === selectedTourId) || tournaments[0] || defaultTourTemplate('SNAP HYPER', 101, 90, 90);
+
+    useEffect(() => {
+        setDraftTour(JSON.parse(JSON.stringify(activeTour)));
+        setHasUnsavedChanges(false);
+    }, [selectedTourId, activeView]);
 
     useEffect(() => {
         if (window.initCloudSync) {
@@ -1004,6 +983,36 @@ function App() {
             console.warn("Storage quota limit:", e);
         }
     }, [appState, playersList]);
+
+    const applyDraftChangesToLive = () => {
+        if (!draftTour) return;
+        userHasModified.current = true;
+        setAppState(prev => ({
+            ...prev,
+            tours: prev.tours.map(t => t.id === selectedTourId ? draftTour : t)
+        }));
+        setHasUnsavedChanges(false);
+        alert("✅ Đã cập nhật thành công toàn bộ thay đổi Setup lên hệ thống & TV View!");
+    };
+
+    const updateDraftConfig = (field, value) => {
+        setDraftTour(prev => {
+            if (!prev) return prev;
+            setHasUnsavedChanges(true);
+            return {
+                ...prev,
+                config: { ...prev.config, [field]: value }
+            };
+        });
+    };
+
+    const updateDraftTourField = (field, value) => {
+        setDraftTour(prev => {
+            if (!prev) return prev;
+            setHasUnsavedChanges(true);
+            return { ...prev, [field]: value };
+        });
+    };
 
     const handleLoginSubmit = (e) => {
         e.preventDefault();
@@ -1094,7 +1103,6 @@ function App() {
         }
     };
 
-    // ĐỒNG BỘ ĐỒNG HỒ REALTIME THEO UNIX TIMESTAMP CHUẨN TẤT CẢ CÁC MÁY
     useEffect(() => {
         const timer = setInterval(() => {
             const now = Date.now();
@@ -1156,28 +1164,7 @@ function App() {
         return () => clearInterval(timer);
     }, []);
 
-    const updateActiveTour = (field, value) => {
-        userHasModified.current = true;
-        setAppState(prev => ({
-            ...prev,
-            tours: prev.tours.map(t => t.id === selectedTourId ? { ...t, [field]: value } : t)
-        }));
-    };
-
-    const updateActiveConfig = (field, value) => {
-        userHasModified.current = true;
-        setAppState(prev => ({
-            ...prev,
-            tours: prev.tours.map(t => {
-                if (t.id === selectedTourId) {
-                    return { ...t, config: { ...t.config, [field]: value } };
-                }
-                return t;
-            })
-        }));
-    };
-
-    const handleFileUpload = (e, configField) => {
+    const handleFileUploadDraft = (e, configField) => {
         const file = e.target.files[0];
         if (file) {
             const reader = new FileReader();
@@ -1205,7 +1192,7 @@ function App() {
                     ctx.drawImage(img, 0, 0, width, height);
 
                     const compressedBase64 = canvas.toDataURL('image/jpeg', 0.75);
-                    updateActiveConfig(configField, compressedBase64);
+                    updateDraftConfig(configField, compressedBase64);
                 };
                 img.src = event.target.result;
             };
@@ -1525,11 +1512,11 @@ function App() {
     };
 
     const addBlindLevel = (type) => {
-        userHasModified.current = true;
+        if (!draftTour) return;
         let newLevelObj = { id: Date.now(), type: 'break', length: 10, title: 'Break', isChipRace: false, chipRaceTitle: '' };
         
         if (type === 'level') {
-            const lastLevel = [...activeTour.blinds].reverse().find(b => b.type === 'level');
+            const lastLevel = [...draftTour.blinds].reverse().find(b => b.type === 'level');
             if (lastLevel) {
                 const nextBlinds = calculateNextProfessionalBlind(lastLevel.bb);
                 newLevelObj = {
@@ -1545,14 +1532,14 @@ function App() {
             }
         }
 
-        const newBlinds = [...activeTour.blinds, newLevelObj];
-        updateActiveTour('blinds', newBlinds);
+        const newBlinds = [...draftTour.blinds, newLevelObj];
+        updateDraftTourField('blinds', newBlinds);
     };
 
     const removeBlind = (id) => {
-        userHasModified.current = true;
-        const newBlinds = activeTour.blinds.filter(b => b.id !== id);
-        updateActiveTour('blinds', newBlinds);
+        if (!draftTour) return;
+        const newBlinds = draftTour.blinds.filter(b => b.id !== id);
+        updateDraftTourField('blinds', newBlinds);
     };
 
     const handleDragStart = (e, index) => {
@@ -1562,68 +1549,47 @@ function App() {
 
     const handleDragOver = (e, index) => {
         e.preventDefault();
-        if (draggedBlindIdx === null || draggedBlindIdx === index) return;
+        if (draggedBlindIdx === null || draggedBlindIdx === index || !draftTour) return;
         
-        const newBlinds = [...activeTour.blinds];
+        const newBlinds = [...draftTour.blinds];
         const draggedItem = newBlinds[draggedBlindIdx];
         newBlinds.splice(draggedBlindIdx, 1);
         newBlinds.splice(index, 0, draggedItem);
         
         setDraggedBlindIdx(index);
-        userHasModified.current = true;
-        updateActiveTour('blinds', newBlinds);
+        updateDraftTourField('blinds', newBlinds);
     };
 
     const handleDragEnd = () => {
         setDraggedBlindIdx(null);
     };
 
-    const updateBlindField = (bId, field, val) => {
-        userHasModified.current = true;
-        const newBlinds = activeTour.blinds.map(item => {
+    const updateBlindFieldDraft = (bId, field, val) => {
+        if (!draftTour) return;
+        const newBlinds = draftTour.blinds.map(item => {
             if (item.id === bId) {
                 return { ...item, [field]: val };
             }
             return item;
         });
-        
-        const now = Date.now();
-        setAppState(prev => ({
-            ...prev,
-            tours: prev.tours.map(t => {
-                if (t.id === selectedTourId) {
-                    const isCurrentStep = t.blinds[t.gameStats.currentStepIdx]?.id === bId;
-                    const newSecs = (isCurrentStep && field === 'length') ? val * 60 : t.gameStats.secondsLeft;
-                    return {
-                        ...t,
-                        blinds: newBlinds,
-                        gameStats: {
-                            ...t.gameStats,
-                            secondsLeft: newSecs,
-                            targetEndTime: t.gameStats.isPaused ? null : now + (newSecs * 1000)
-                        }
-                    };
-                }
-                return t;
-            })
-        }));
+        updateDraftTourField('blinds', newBlinds);
     };
 
-    const addPayoutItem = () => {
-        userHasModified.current = true;
-        const nextPlaceNum = activeTour.payouts.length + 1;
-        const newPayouts = [...activeTour.payouts, { place: `Top ${nextPlaceNum}`, value: 1 }];
-        updateActiveTour('payouts', newPayouts);
+    const addPayoutItemDraft = () => {
+        if (!draftTour) return;
+        const nextPlaceNum = draftTour.payouts.length + 1;
+        const newPayouts = [...draftTour.payouts, { place: `Top ${nextPlaceNum}`, value: 1 }];
+        updateDraftTourField('payouts', newPayouts);
     };
 
-    const removePayoutItem = (idx) => {
-        if (activeTour.payouts.length <= 1) {
+    const removePayoutItemDraft = (idx) => {
+        if (!draftTour) return;
+        if (draftTour.payouts.length <= 1) {
             alert("Cần duy trì ít nhất 1 mức giải thưởng!");
             return;
         }
-        userHasModified.current = true;
-        const newPayouts = activeTour.payouts.filter((_, i) => i !== idx);
-        updateActiveTour('payouts', newPayouts);
+        const newPayouts = draftTour.payouts.filter((_, i) => i !== idx);
+        updateDraftTourField('payouts', newPayouts);
     };
 
     const nextStepTour = (tourId) => {
@@ -1674,23 +1640,18 @@ function App() {
         }));
     };
 
+    const currentDraft = draftTour || activeTour;
+
     return (
         <div className="min-h-screen flex flex-col justify-between">
-            {/* THANH MENU ĐIỀU HƯỚNG TAB NGANG RÕ RÀNG */}
             <header className="w-full bg-black/90 backdrop-blur-md border-b border-gold/30 px-4 py-2 flex flex-wrap justify-between items-center z-50 text-xs sm:text-sm">
                 <div className="flex items-center space-x-3">
                     <span className="bg-red-950/90 border border-red-600/50 text-red-400 font-extrabold px-3 py-1 rounded tracking-wider uppercase">
                         SNAP CALL POKER
                     </span>
                     <span className="text-gray-300 font-semibold hidden md:inline">| {activeTour.config.clubName}</span>
-                    {isCloudSynced && (
-                        <span className="bg-emerald-950 border border-emerald-500/50 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Live Supabase Synced
-                        </span>
-                    )}
                 </div>
 
-                {/* DANH SÁCH CÁC TAB NGANG (MỤC 1, MỤC 2, MỤC 3, MỤC 4) */}
                 <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 bg-gray-950 p-1 rounded-xl border border-gold/30">
                     <button 
                         onClick={() => setActiveView('combined-dashboard')}
@@ -1700,7 +1661,6 @@ function App() {
                                 : 'text-gray-300 hover:text-white hover:bg-gray-800'
                         }`}
                     >
-                        <span>Mục 1:</span>
                         <i className="fa-solid fa-trophy"></i> Bảng Elo & Tour
                     </button>
 
@@ -1712,7 +1672,6 @@ function App() {
                                 : 'text-gray-300 hover:text-white hover:bg-gray-800'
                         }`}
                     >
-                        <span>Mục 2:</span>
                         <i className="fa-solid fa-cart-shopping"></i> Đặt Đơn (Phase 2)
                     </button>
 
@@ -1724,7 +1683,6 @@ function App() {
                                 : 'text-gray-300 hover:text-white hover:bg-gray-800'
                         }`}
                     >
-                        <span>Mục 3:</span>
                         <i className="fa-solid fa-tv"></i> Player TV View
                     </button>
 
@@ -1736,7 +1694,6 @@ function App() {
                                 : 'text-gray-300 hover:text-white hover:bg-gray-800'
                         }`}
                     >
-                        <span>Mục 4:</span>
                         <i className="fa-solid fa-sliders"></i> Admin Setup
                     </button>
 
@@ -1748,7 +1705,6 @@ function App() {
                 </div>
             </header>
 
-            {/* MODAL ĐĂNG NHẬP SET UP */}
             {showLoginModal && (
                 <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
                     <div className="bg-black/90 border border-gold/40 rounded-2xl p-6 max-w-sm w-full shadow-2xl relative text-center">
@@ -1787,9 +1743,7 @@ function App() {
                 </div>
             )}
 
-            {/* MAIN CONTENT AREA */}
             <main className="flex-1 max-w-[98vw] w-full mx-auto p-3 md:p-6 flex flex-col justify-center my-auto">
-                {/* MỤC 1: BẢNG ELO VÀ TOUR ĐANG CHẠY CHUNG MỘT MÀN HÌNH */}
                 {activeView === 'combined-dashboard' && (
                     <div className="w-full">
                         <TournamentTVDashboard 
@@ -1799,7 +1753,6 @@ function App() {
                     </div>
                 )}
 
-                {/* MỤC 2: ĐẶT ĐƠN / THU NGÂN POS (PHASE 2 CHỜ TÍCH HỢP) */}
                 {activeView === 'pos-orders' && (
                     <div className="bg-black/80 border border-gold/40 rounded-2xl p-10 text-center space-y-4 max-w-2xl mx-auto shadow-2xl my-auto">
                         <div className="text-4xl text-amber-400"><i className="fa-solid fa-receipt"></i></div>
@@ -1813,17 +1766,29 @@ function App() {
                     </div>
                 )}
 
-                {/* MỤC 3: MÀN HÌNH STANDALONE PLAYER TV VIEW NGUYÊN BẢN BAN ĐẦU */}
                 {activeView === 'standalone-tv' && (
                     <div className="w-full">
                         <StandalonePlayerTVCard tour={activeTour} openSinglePopout={openSinglePopoutWindow} />
                     </div>
                 )}
 
-                {/* MỤC 4: ADMIN SETUP CẤU HÌNH TOUR & ĐIỀU KHIỂN */}
                 {activeView === 'admin' && (
                     <div className="space-y-6 w-full">
-                        {/* THƯ VIỆN MẪU TOUR WEB (PRESET LIBRARY) */}
+                        {hasUnsavedChanges && (
+                            <div className="bg-gradient-to-r from-amber-500/20 via-yellow-500/30 to-amber-500/20 border-2 border-gold rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 shadow-xl">
+                                <div className="flex items-center gap-3 text-gold-bright font-bold text-sm">
+                                    <i className="fa-solid fa-triangle-exclamation text-xl animate-bounce"></i>
+                                    <span>Bạn có chỉnh sửa mới trong Setup chưa được áp dụng lên TV View & Cloud!</span>
+                                </div>
+                                <button
+                                    onClick={applyDraftChangesToLive}
+                                    className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-extrabold text-sm shadow-lg transition cursor-pointer flex items-center gap-2"
+                                >
+                                    <i className="fa-solid fa-cloud-arrow-up"></i> CẬP NHẬT SETUP HỆ THỐNG NGAY
+                                </button>
+                            </div>
+                        )}
+
                         <div className="bg-gradient-to-r from-amber-950/40 via-black to-amber-950/40 border border-gold/40 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 backdrop-blur-md">
                             <div className="flex items-center space-x-2 overflow-x-auto py-1">
                                 <span className="text-xs text-gold-bright uppercase font-bold mr-1 flex items-center gap-1.5">
@@ -1916,9 +1881,17 @@ function App() {
                         </div>
 
                         <div className="bg-black/70 border border-gold/40 rounded-2xl p-6 shadow-2xl backdrop-blur-md">
-                            <h2 className="text-xl font-bold text-gold-bright mb-4 flex items-center gap-2">
-                                <i className="fa-solid fa-gear"></i> Cấu Hình Tournament: <span className="text-white">{activeTour.config.name}</span>
-                            </h2>
+                            <div className="flex justify-between items-center mb-4">
+                                <h2 className="text-xl font-bold text-gold-bright flex items-center gap-2">
+                                    <i className="fa-solid fa-gear"></i> Cấu Hình Tournament (Bản Nháp Setup): <span className="text-white">{currentDraft.config.name}</span>
+                                </h2>
+                                <button
+                                    onClick={applyDraftChangesToLive}
+                                    className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-extrabold text-xs shadow-lg transition cursor-pointer flex items-center gap-1.5"
+                                >
+                                    <i className="fa-solid fa-check-double"></i> CẬP NHẬT HỆ THỐNG
+                                </button>
+                            </div>
 
                             <div className="grid grid-cols-6 gap-1 border-b border-gray-800 pb-3 overflow-x-auto">
                                 {['Basics', 'Blinds', 'Payouts', 'Màu & Fonts TV', 'Âm Thanh', 'Review'].map((label, idx) => (
@@ -1939,15 +1912,15 @@ function App() {
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                             <div>
                                                 <label className="block text-gray-400 mb-1 font-semibold">Tên Câu Lạc Bộ (Club Name)</label>
-                                                <input type="text" value={activeTour.config.clubName} onChange={(e) => updateActiveConfig('clubName', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white font-bold text-base" />
+                                                <input type="text" value={currentDraft.config.clubName} onChange={(e) => updateDraftConfig('clubName', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white font-bold text-base" />
                                             </div>
                                             <div>
                                                 <label className="block text-amber-300 mb-1 font-semibold">Tiêu Đề Phụ (Sub-Title CLB)</label>
-                                                <input type="text" value={activeTour.config.subTitle || 'BOARD GAME & COFFEE'} onChange={(e) => updateActiveConfig('subTitle', e.target.value)} className="w-full bg-gray-900 border border-amber-500/50 rounded-lg p-3 text-amber-300 font-bold text-base" placeholder="vd: BOARD GAME & COFFEE" />
+                                                <input type="text" value={currentDraft.config.subTitle || 'BOARD GAME & COFFEE'} onChange={(e) => updateDraftConfig('subTitle', e.target.value)} className="w-full bg-gray-900 border border-amber-500/50 rounded-lg p-3 text-amber-300 font-bold text-base" placeholder="vd: BOARD GAME & COFFEE" />
                                             </div>
                                             <div>
                                                 <label className="block text-gray-400 mb-1 font-semibold">Tên Giải Đấu (Tour Title)</label>
-                                                <input type="text" value={activeTour.config.name} onChange={(e) => updateActiveConfig('name', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white font-bold text-base" />
+                                                <input type="text" value={currentDraft.config.name} onChange={(e) => updateDraftConfig('name', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white font-bold text-base" />
                                             </div>
                                         </div>
 
@@ -1957,8 +1930,8 @@ function App() {
                                                 <input 
                                                     type="text" 
                                                     placeholder="vd: 13:00 hoặc 19:30" 
-                                                    value={activeTour.config.scheduledTime || ''} 
-                                                    onChange={(e) => updateActiveConfig('scheduledTime', e.target.value)} 
+                                                    value={currentDraft.config.scheduledTime || ''} 
+                                                    onChange={(e) => updateDraftConfig('scheduledTime', e.target.value)} 
                                                     className="w-full bg-gray-900 border border-amber-500/50 rounded-lg p-3 text-gold font-bold text-center text-base" 
                                                 />
                                             </div>
@@ -1967,14 +1940,14 @@ function App() {
                                                 <label className="block text-amber-300 mb-1 font-bold">Bật Đếm Ngược Hẹn Giờ Khai Mạc</label>
                                                 <button 
                                                     type="button"
-                                                    onClick={() => updateActiveConfig('enableScheduledCountdown', !activeTour.config.enableScheduledCountdown)}
+                                                    onClick={() => updateDraftConfig('enableScheduledCountdown', !currentDraft.config.enableScheduledCountdown)}
                                                     className={`w-full py-3 rounded-lg font-extrabold text-xs transition ${
-                                                        activeTour.config.enableScheduledCountdown 
+                                                        currentDraft.config.enableScheduledCountdown 
                                                             ? 'bg-emerald-600 text-white' 
                                                             : 'bg-gray-800 text-gray-400 border border-gray-700'
                                                     }`}
                                                 >
-                                                    {activeTour.config.enableScheduledCountdown ? '✓ ĐANG BẬT ĐẾM NGƯỜI CHỜ GIỜ' : '✕ TẮT (DASHBOARD CHẠY NGAY)'}
+                                                    {currentDraft.config.enableScheduledCountdown ? '✓ ĐANG BẬT ĐẾM NGƯỜI CHỜ GIỜ' : '✕ TẮT (DASHBOARD CHẠY NGAY)'}
                                                 </button>
                                             </div>
 
@@ -1982,8 +1955,8 @@ function App() {
                                                 <label className="block text-amber-300 mb-1 font-bold">Số Lượng Top Elo Hiển Thị TV</label>
                                                 <input 
                                                     type="number" 
-                                                    value={activeTour.config.topEloLimit || 10} 
-                                                    onChange={(e) => updateActiveConfig('topEloLimit', Number(e.target.value))} 
+                                                    value={currentDraft.config.topEloLimit || 10} 
+                                                    onChange={(e) => updateDraftConfig('topEloLimit', Number(e.target.value))} 
                                                     className="w-full bg-gray-900 border border-amber-500/50 rounded-lg p-3 text-white font-bold text-center text-base" 
                                                 />
                                             </div>
@@ -1992,23 +1965,23 @@ function App() {
                                         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 bg-black/40 p-4 rounded-xl border border-gray-800">
                                             <div>
                                                 <label className="block text-gray-400 mb-1 font-semibold">Buy-in ($)</label>
-                                                <input type="number" value={activeTour.config.buyIn} onChange={(e) => updateActiveConfig('buyIn', Number(e.target.value))} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white font-bold text-base" />
+                                                <input type="number" value={currentDraft.config.buyIn} onChange={(e) => updateDraftConfig('buyIn', Number(e.target.value))} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white font-bold text-base" />
                                             </div>
                                             <div>
                                                 <label className="block text-gray-400 mb-1 font-semibold">Rebuy Price ($)</label>
-                                                <input type="number" value={activeTour.config.rebuyPrice} onChange={(e) => updateActiveConfig('rebuyPrice', Number(e.target.value))} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white font-bold text-base" />
+                                                <input type="number" value={currentDraft.config.rebuyPrice} onChange={(e) => updateDraftConfig('rebuyPrice', Number(e.target.value))} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white font-bold text-base" />
                                             </div>
                                             <div>
                                                 <label className="block text-gray-400 mb-1 font-semibold">Starting Stack</label>
-                                                <input type="number" value={activeTour.config.startingStack} onChange={(e) => updateActiveConfig('startingStack', Number(e.target.value))} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white font-bold text-base" />
+                                                <input type="number" value={currentDraft.config.startingStack} onChange={(e) => updateDraftConfig('startingStack', Number(e.target.value))} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white font-bold text-base" />
                                             </div>
                                             <div>
                                                 <label className="block text-gray-400 mb-1 font-semibold">Max Players/Table</label>
-                                                <input type="number" value={activeTour.config.maxPlayersPerTable} onChange={(e) => updateActiveConfig('maxPlayersPerTable', Number(e.target.value))} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-gold font-bold text-base" />
+                                                <input type="number" value={currentDraft.config.maxPlayersPerTable} onChange={(e) => updateDraftConfig('maxPlayersPerTable', Number(e.target.value))} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-gold font-bold text-base" />
                                             </div>
                                             <div>
                                                 <label className="block text-gray-400 mb-1 font-semibold">Reg End Level</label>
-                                                <input type="number" value={activeTour.config.regEndLevel} onChange={(e) => updateActiveConfig('regEndLevel', Number(e.target.value))} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-amber-400 font-bold text-base" />
+                                                <input type="number" value={currentDraft.config.regEndLevel} onChange={(e) => updateDraftConfig('regEndLevel', Number(e.target.value))} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-amber-400 font-bold text-base" />
                                             </div>
                                         </div>
                                     </div>
@@ -2027,7 +2000,7 @@ function App() {
                                         <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
                                             {(() => {
                                                 let runningLevelCount = 0;
-                                                return activeTour.blinds.map((b, idx) => {
+                                                return currentDraft.blinds.map((b, idx) => {
                                                     const isLevel = b.type === 'level';
                                                     if (isLevel) runningLevelCount++;
                                                     const displayLvlNum = runningLevelCount;
@@ -2048,10 +2021,10 @@ function App() {
                                                                 <>
                                                                     <span className="font-bold text-gold-bright w-14 text-sm">Lvl {displayLvlNum}</span>
                                                                     <div className="flex gap-2 items-center flex-1 justify-around">
-                                                                        <div><span className="text-[9px] text-gray-400 block">SB</span><input type="number" value={b.sb} onChange={(e)=> updateBlindField(b.id, 'sb', Number(e.target.value))} className="w-20 bg-gray-900 border border-gray-700 rounded p-1.5 text-center text-white font-bold"/></div>
-                                                                        <div><span className="text-[9px] text-gray-400 block">BB</span><input type="number" value={b.bb} onChange={(e)=> updateBlindField(b.id, 'bb', Number(e.target.value))} className="w-20 bg-gray-900 border border-gray-700 rounded p-1.5 text-center text-white font-bold"/></div>
-                                                                        <div><span className="text-[9px] text-gray-400 block">Ante</span><input type="number" value={b.ante} onChange={(e)=> updateBlindField(b.id, 'ante', Number(e.target.value))} className="w-20 bg-gray-900 border border-gray-700 rounded p-1.5 text-center text-white font-bold"/></div>
-                                                                        <div><span className="text-[9px] text-amber-300 font-bold block">Phút (Time)</span><input type="number" value={b.length} onChange={(e)=> updateBlindField(b.id, 'length', Number(e.target.value))} className="w-20 bg-gray-900 border border-amber-500/50 rounded p-1.5 text-center text-amber-300 font-bold"/></div>
+                                                                        <div><span className="text-[9px] text-gray-400 block">SB</span><input type="number" value={b.sb} onChange={(e)=> updateBlindFieldDraft(b.id, 'sb', Number(e.target.value))} className="w-20 bg-gray-900 border border-gray-700 rounded p-1.5 text-center text-white font-bold"/></div>
+                                                                        <div><span className="text-[9px] text-gray-400 block">BB</span><input type="number" value={b.bb} onChange={(e)=> updateBlindFieldDraft(b.id, 'bb', Number(e.target.value))} className="w-20 bg-gray-900 border border-gray-700 rounded p-1.5 text-center text-white font-bold"/></div>
+                                                                        <div><span className="text-[9px] text-gray-400 block">Ante</span><input type="number" value={b.ante} onChange={(e)=> updateBlindFieldDraft(b.id, 'ante', Number(e.target.value))} className="w-20 bg-gray-900 border border-gray-700 rounded p-1.5 text-center text-white font-bold"/></div>
+                                                                        <div><span className="text-[9px] text-amber-300 font-bold block">Phút (Time)</span><input type="number" value={b.length} onChange={(e)=> updateBlindFieldDraft(b.id, 'length', Number(e.target.value))} className="w-20 bg-gray-900 border border-amber-500/50 rounded p-1.5 text-center text-amber-300 font-bold"/></div>
                                                                     </div>
                                                                 </>
                                                             ) : (
@@ -2059,24 +2032,24 @@ function App() {
                                                                     <div className="flex items-center justify-between">
                                                                         <span className="font-bold text-cyan-400 text-xs">☕ BREAK TIME</span>
                                                                         <label className="flex items-center gap-1.5 cursor-pointer">
-                                                                            <input type="checkbox" checked={!!b.isChipRace} onChange={(e)=> updateBlindField(b.id, 'isChipRace', e.target.checked)} className="rounded text-amber-500 focus:ring-0" />
+                                                                            <input type="checkbox" checked={!!b.isChipRace} onChange={(e)=> updateBlindFieldDraft(b.id, 'isChipRace', e.target.checked)} className="rounded text-amber-500 focus:ring-0" />
                                                                             <span className="text-[11px] text-amber-300 font-bold">Chip race</span>
                                                                         </label>
                                                                     </div>
                                                                     <div className="flex items-center gap-3">
                                                                         <div className="flex-1">
                                                                             <span className="text-[9px] text-gray-400 block">Break title</span>
-                                                                            <input type="text" value={b.title || ''} placeholder="vd: 1st" onChange={(e)=> updateBlindField(b.id, 'title', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1 text-white text-xs"/>
+                                                                            <input type="text" value={b.title || ''} placeholder="vd: 1st" onChange={(e)=> updateBlindFieldDraft(b.id, 'title', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1 text-white text-xs"/>
                                                                         </div>
                                                                         <div>
                                                                             <span className="text-[9px] text-amber-300 font-bold block">Phút (Time)</span>
-                                                                            <input type="number" value={b.length} onChange={(e)=> updateBlindField(b.id, 'length', Number(e.target.value))} className="w-20 bg-gray-900 border border-amber-500/50 rounded px-2 py-1 text-center text-amber-300 font-bold text-xs"/>
+                                                                            <input type="number" value={b.length} onChange={(e)=> updateBlindFieldDraft(b.id, 'length', Number(e.target.value))} className="w-20 bg-gray-900 border border-amber-500/50 rounded px-2 py-1 text-center text-amber-300 font-bold text-xs"/>
                                                                         </div>
                                                                     </div>
                                                                     {b.isChipRace && (
                                                                         <div>
                                                                             <span className="text-[9px] text-amber-400 font-bold block">Chip race title</span>
-                                                                            <input type="text" value={b.chipRaceTitle || ''} placeholder="vd: 100, 500" onChange={(e)=> updateBlindField(b.id, 'chipRaceTitle', e.target.value)} className="w-full bg-gray-900 border border-amber-500/40 rounded px-2 py-1 text-amber-300 font-bold text-xs"/>
+                                                                            <input type="text" value={b.chipRaceTitle || ''} placeholder="vd: 100, 500" onChange={(e)=> updateBlindFieldDraft(b.id, 'chipRaceTitle', e.target.value)} className="w-full bg-gray-900 border border-amber-500/40 rounded px-2 py-1 text-amber-300 font-bold text-xs"/>
                                                                         </div>
                                                                     )}
                                                                 </div>
@@ -2094,15 +2067,15 @@ function App() {
                                     <div className="space-y-3 text-xs sm:text-sm">
                                         <div className="flex justify-between items-center">
                                             <span className="text-gold-bright font-bold uppercase">Cơ cấu trả thưởng (Payout Points / Token)</span>
-                                            <button onClick={addPayoutItem} className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded text-xs font-bold">+ Thêm Giải</button>
+                                            <button onClick={addPayoutItemDraft} className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded text-xs font-bold">+ Thêm Giải</button>
                                         </div>
                                         <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-                                            {activeTour.payouts.map((p, idx) => (
+                                            {currentDraft.payouts.map((p, idx) => (
                                                 <div key={idx} className="flex items-center gap-2 bg-black/40 p-2.5 rounded-lg border border-gray-800">
-                                                    <input type="text" value={p.place} onChange={(e)=>{const v=e.target.value; const newP = activeTour.payouts.map((item,i)=>i===idx?{...item, place:v}:item); updateActiveTour('payouts', newP);}} className="w-28 bg-gray-900 border border-gray-700 rounded-lg p-2 text-white font-semibold text-center text-base" />
+                                                    <input type="text" value={p.place} onChange={(e)=>{const v=e.target.value; const newP = currentDraft.payouts.map((item,i)=>i===idx?{...item, place:v}:item); updateDraftTourField('payouts', newP);}} className="w-28 bg-gray-900 border border-gray-700 rounded-lg p-2 text-white font-semibold text-center text-base" />
                                                     <span className="text-gray-400 font-bold">Điểm / Token:</span>
-                                                    <input type="number" step="0.1" value={p.value} onChange={(e)=>{const v=Number(e.target.value); const newP = activeTour.payouts.map((item,i)=>i===idx?{...item, value:v}:item); updateActiveTour('payouts', newP);}} className="flex-1 bg-gray-900 border border-gray-700 rounded-lg p-2 text-white text-center font-bold text-base" />
-                                                    <button onClick={() => removePayoutItem(idx)} className="text-red-400 hover:text-red-300 font-bold px-2">✕</button>
+                                                    <input type="number" step="0.1" value={p.value} onChange={(e)=>{const v=Number(e.target.value); const newP = currentDraft.payouts.map((item,i)=>i===idx?{...item, value:v}:item); updateDraftTourField('payouts', newP);}} className="flex-1 bg-gray-900 border border-gray-700 rounded-lg p-2 text-white text-center font-bold text-base" />
+                                                    <button onClick={() => removePayoutItemDraft(idx)} className="text-red-400 hover:text-red-300 font-bold px-2">✕</button>
                                                 </div>
                                             ))}
                                         </div>
@@ -2114,7 +2087,7 @@ function App() {
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                             <div>
                                                 <label className="block text-gray-400 mb-1 font-semibold">Tùy Chọn Màu Chữ TV (Color Theme)</label>
-                                                <select value={activeTour.config.colorTheme || 'tnt-gold'} onChange={(e) => updateActiveConfig('colorTheme', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-amber-300 font-bold text-base">
+                                                <select value={currentDraft.config.colorTheme || 'tnt-gold'} onChange={(e) => updateDraftConfig('colorTheme', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-amber-300 font-bold text-base">
                                                     {colorThemes.map(theme => (
                                                         <option key={theme.id} value={theme.id}>{theme.label}</option>
                                                     ))}
@@ -2122,7 +2095,7 @@ function App() {
                                             </div>
                                             <div>
                                                 <label className="block text-gray-400 mb-1 font-semibold">Kiểu Phông Chữ (Font Style)</label>
-                                                <select value={activeTour.config.selectedFont || 'font-montserrat'} onChange={(e) => updateActiveConfig('selectedFont', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-gold font-bold text-base">
+                                                <select value={currentDraft.config.selectedFont || 'font-montserrat'} onChange={(e) => updateDraftConfig('selectedFont', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-gold font-bold text-base">
                                                     {fontOptions.map(font => (
                                                         <option key={font.value} value={font.value}>{font.label}</option>
                                                     ))}
@@ -2130,7 +2103,7 @@ function App() {
                                             </div>
                                             <div>
                                                 <label className="block text-gray-400 mb-1 font-semibold">Vị Trí Logo CLB</label>
-                                                <select value={activeTour.config.logoPosition || 'Center'} onChange={(e) => updateActiveConfig('logoPosition', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white font-bold text-base">
+                                                <select value={currentDraft.config.logoPosition || 'Center'} onChange={(e) => updateDraftConfig('logoPosition', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white font-bold text-base">
                                                     <option value="Center">Chính Giữa Căn Trên Title</option>
                                                     <option value="Top-Left">Góc Trên Bên Trái (Góc TV)</option>
                                                 </select>
@@ -2141,32 +2114,32 @@ function App() {
                                             <div>
                                                 <label className="block text-amber-300 mb-1 font-bold">Logo CLB Upload</label>
                                                 <div className="flex gap-2">
-                                                    <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'logoUrl')} className="flex-1 bg-gray-900 border border-gray-700 rounded p-1 text-xs text-gray-300 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-amber-500 file:text-black file:font-bold" />
-                                                    {activeTour.config.logoUrl && (
-                                                        <button onClick={() => updateActiveConfig('logoUrl', '')} className="bg-red-600 hover:bg-red-500 text-white font-bold px-2 rounded" title="Xóa Logo">✕</button>
+                                                    <input type="file" accept="image/*" onChange={(e) => handleFileUploadDraft(e, 'logoUrl')} className="flex-1 bg-gray-900 border border-gray-700 rounded p-1 text-xs text-gray-300 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-amber-500 file:text-black file:font-bold" />
+                                                    {currentDraft.config.logoUrl && (
+                                                        <button onClick={() => updateDraftConfig('logoUrl', '')} className="bg-red-600 hover:bg-red-500 text-white font-bold px-2 rounded" title="Xóa Logo">✕</button>
                                                     )}
                                                 </div>
-                                                {activeTour.config.logoUrl && <span className="text-[10px] text-emerald-400 block mt-1">✓ Đã có Logo</span>}
+                                                {currentDraft.config.logoUrl && <span className="text-[10px] text-emerald-400 block mt-1">✓ Đã có Logo</span>}
                                             </div>
                                             <div>
                                                 <label className="block text-amber-300 mb-1 font-bold">QR Code Upload</label>
                                                 <div className="flex gap-2">
-                                                    <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'qrCodeUrl')} className="flex-1 bg-gray-900 border border-gray-700 rounded p-1 text-xs text-gray-300 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-amber-500 file:text-black file:font-bold" />
-                                                    {activeTour.config.qrCodeUrl && (
-                                                        <button onClick={() => updateActiveConfig('qrCodeUrl', '')} className="bg-red-600 hover:bg-red-500 text-white font-bold px-2 rounded" title="Xóa QR">✕</button>
+                                                    <input type="file" accept="image/*" onChange={(e) => handleFileUploadDraft(e, 'qrCodeUrl')} className="flex-1 bg-gray-900 border border-gray-700 rounded p-1 text-xs text-gray-300 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-amber-500 file:text-black file:font-bold" />
+                                                    {currentDraft.config.qrCodeUrl && (
+                                                        <button onClick={() => updateDraftConfig('qrCodeUrl', '')} className="bg-red-600 hover:bg-red-500 text-white font-bold px-2 rounded" title="Xóa QR">✕</button>
                                                     )}
                                                 </div>
-                                                {activeTour.config.qrCodeUrl && <span className="text-[10px] text-emerald-400 block mt-1">✓ Đã có QR</span>}
+                                                {currentDraft.config.qrCodeUrl && <span className="text-[10px] text-emerald-400 block mt-1">✓ Đã có QR</span>}
                                             </div>
                                             <div>
                                                 <label className="block text-amber-300 mb-1 font-bold">Hình Nền Custom</label>
                                                 <div className="flex gap-2">
-                                                    <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'bgImageUrl')} className="flex-1 bg-gray-900 border border-gray-700 rounded p-1 text-xs text-gray-300 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-amber-500 file:text-black file:font-bold" />
-                                                    {activeTour.config.bgImageUrl && (
-                                                        <button onClick={() => updateActiveConfig('bgImageUrl', '')} className="bg-red-600 hover:bg-red-500 text-white font-bold px-2 rounded" title="Xóa Nền">✕</button>
+                                                    <input type="file" accept="image/*" onChange={(e) => handleFileUploadDraft(e, 'bgImageUrl')} className="flex-1 bg-gray-900 border border-gray-700 rounded p-1 text-xs text-gray-300 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-amber-500 file:text-black file:font-bold" />
+                                                    {currentDraft.config.bgImageUrl && (
+                                                        <button onClick={() => updateDraftConfig('bgImageUrl', '')} className="bg-red-600 hover:bg-red-500 text-white font-bold px-2 rounded" title="Xóa Nền">✕</button>
                                                     )}
                                                 </div>
-                                                {activeTour.config.bgImageUrl && <span className="text-[10px] text-emerald-400 block mt-1">✓ Đã có Nền</span>}
+                                                {currentDraft.config.bgImageUrl && <span className="text-[10px] text-emerald-400 block mt-1">✓ Đã có Nền</span>}
                                             </div>
                                         </div>
 
@@ -2185,58 +2158,58 @@ function App() {
                                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                                         <div>
                                                             <span className="text-xs text-amber-300 font-bold block mb-1">Title Snapcall (px)</span>
-                                                            <input type="number" value={activeTour.config.fontCustomSizes?.brandPx || 30} onChange={(e)=> {
-                                                                const fontCustomSizes = { ...(activeTour.config.fontCustomSizes || {}), brandPx: Number(e.target.value) };
-                                                                updateActiveConfig('fontCustomSizes', fontCustomSizes);
+                                                            <input type="number" value={currentDraft.config.fontCustomSizes?.brandPx || 30} onChange={(e)=> {
+                                                                const fontCustomSizes = { ...(currentDraft.config.fontCustomSizes || {}), brandPx: Number(e.target.value) };
+                                                                updateDraftConfig('fontCustomSizes', fontCustomSizes);
                                                             }} className="w-full bg-gray-900 border border-amber-500/50 rounded p-2 text-amber-300 font-bold text-center" />
                                                         </div>
                                                         <div>
                                                             <span className="text-xs text-amber-300 font-bold block mb-1">Header Title Tour (px)</span>
-                                                            <input type="number" value={activeTour.config.fontCustomSizes?.headerPx || 56} onChange={(e)=> {
-                                                                const fontCustomSizes = { ...(activeTour.config.fontCustomSizes || {}), headerPx: Number(e.target.value) };
-                                                                updateActiveConfig('fontCustomSizes', fontCustomSizes);
+                                                            <input type="number" value={currentDraft.config.fontCustomSizes?.headerPx || 56} onChange={(e)=> {
+                                                                const fontCustomSizes = { ...(currentDraft.config.fontCustomSizes || {}), headerPx: Number(e.target.value) };
+                                                                updateDraftConfig('fontCustomSizes', fontCustomSizes);
                                                             }} className="w-full bg-gray-900 border border-amber-500/50 rounded p-2 text-amber-300 font-bold text-center" />
                                                         </div>
                                                         <div>
                                                             <span className="text-xs text-amber-300 font-bold block mb-1">Level Badge (px)</span>
-                                                            <input type="number" value={activeTour.config.fontCustomSizes?.levelBadgePx || 22} onChange={(e)=> {
-                                                                const fontCustomSizes = { ...(activeTour.config.fontCustomSizes || {}), levelBadgePx: Number(e.target.value) };
-                                                                updateActiveConfig('fontCustomSizes', fontCustomSizes);
+                                                            <input type="number" value={currentDraft.config.fontCustomSizes?.levelBadgePx || 22} onChange={(e)=> {
+                                                                const fontCustomSizes = { ...(currentDraft.config.fontCustomSizes || {}), levelBadgePx: Number(e.target.value) };
+                                                                updateDraftConfig('fontCustomSizes', fontCustomSizes);
                                                             }} className="w-full bg-gray-900 border border-amber-500/50 rounded p-2 text-amber-300 font-bold text-center" />
                                                         </div>
                                                         <div>
                                                             <span className="text-xs text-amber-300 font-bold block mb-1">Timer Countdown (px)</span>
-                                                            <input type="number" value={activeTour.config.fontCustomSizes?.timerPx || 120} onChange={(e)=> {
-                                                                const fontCustomSizes = { ...(activeTour.config.fontCustomSizes || {}), timerPx: Number(e.target.value) };
-                                                                updateActiveConfig('fontCustomSizes', fontCustomSizes);
+                                                            <input type="number" value={currentDraft.config.fontCustomSizes?.timerPx || 120} onChange={(e)=> {
+                                                                const fontCustomSizes = { ...(currentDraft.config.fontCustomSizes || {}), timerPx: Number(e.target.value) };
+                                                                updateDraftConfig('fontCustomSizes', fontCustomSizes);
                                                             }} className="w-full bg-gray-900 border border-amber-500/50 rounded p-2 text-amber-300 font-bold text-center" />
                                                         </div>
                                                         <div>
                                                             <span className="text-xs text-amber-300 font-bold block mb-1">Blinds & Ante (px)</span>
-                                                            <input type="number" value={activeTour.config.fontCustomSizes?.blindsPx || 54} onChange={(e)=> {
-                                                                const fontCustomSizes = { ...(activeTour.config.fontCustomSizes || {}), blindsPx: Number(e.target.value) };
-                                                                updateActiveConfig('fontCustomSizes', fontCustomSizes);
+                                                            <input type="number" value={currentDraft.config.fontCustomSizes?.blindsPx || 54} onChange={(e)=> {
+                                                                const fontCustomSizes = { ...(currentDraft.config.fontCustomSizes || {}), blindsPx: Number(e.target.value) };
+                                                                updateDraftConfig('fontCustomSizes', fontCustomSizes);
                                                             }} className="w-full bg-gray-900 border border-amber-500/50 rounded p-2 text-amber-300 font-bold text-center" />
                                                         </div>
                                                         <div>
                                                             <span className="text-xs text-amber-300 font-bold block mb-1">Next Level (px)</span>
-                                                            <input type="number" value={activeTour.config.fontCustomSizes?.nextLevelPx || 46} onChange={(e)=> {
-                                                                const fontCustomSizes = { ...(activeTour.config.fontCustomSizes || {}), nextLevelPx: Number(e.target.value) };
-                                                                updateActiveConfig('fontCustomSizes', fontCustomSizes);
+                                                            <input type="number" value={currentDraft.config.fontCustomSizes?.nextLevelPx || 46} onChange={(e)=> {
+                                                                const fontCustomSizes = { ...(currentDraft.config.fontCustomSizes || {}), nextLevelPx: Number(e.target.value) };
+                                                                updateDraftConfig('fontCustomSizes', fontCustomSizes);
                                                             }} className="w-full bg-gray-900 border border-amber-500/50 rounded p-2 text-amber-300 font-bold text-center" />
                                                         </div>
                                                         <div>
                                                             <span className="text-xs text-amber-300 font-bold block mb-1">Players / Stack (px)</span>
-                                                            <input type="number" value={activeTour.config.fontCustomSizes?.statsPx || 30} onChange={(e)=> {
-                                                                const fontCustomSizes = { ...(activeTour.config.fontCustomSizes || {}), statsPx: Number(e.target.value) };
-                                                                updateActiveConfig('fontCustomSizes', fontCustomSizes);
+                                                            <input type="number" value={currentDraft.config.fontCustomSizes?.statsPx || 30} onChange={(e)=> {
+                                                                const fontCustomSizes = { ...(currentDraft.config.fontCustomSizes || {}), statsPx: Number(e.target.value) };
+                                                                updateDraftConfig('fontCustomSizes', fontCustomSizes);
                                                             }} className="w-full bg-gray-900 border border-amber-500/50 rounded p-2 text-amber-300 font-bold text-center" />
                                                         </div>
                                                         <div>
                                                             <span className="text-xs text-amber-300 font-bold block mb-1">Payouts / Token (px)</span>
-                                                            <input type="number" value={activeTour.config.fontCustomSizes?.payoutsPx || 24} onChange={(e)=> {
-                                                                const fontCustomSizes = { ...(activeTour.config.fontCustomSizes || {}), payoutsPx: Number(e.target.value) };
-                                                                updateActiveConfig('fontCustomSizes', fontCustomSizes);
+                                                            <input type="number" value={currentDraft.config.fontCustomSizes?.payoutsPx || 24} onChange={(e)=> {
+                                                                const fontCustomSizes = { ...(currentDraft.config.fontCustomSizes || {}), payoutsPx: Number(e.target.value) };
+                                                                updateDraftConfig('fontCustomSizes', fontCustomSizes);
                                                             }} className="w-full bg-gray-900 border border-amber-500/50 rounded p-2 text-amber-300 font-bold text-center" />
                                                         </div>
                                                     </div>
@@ -2254,10 +2227,10 @@ function App() {
                                                 <label className="block text-gray-300 font-bold">🔔 Khi Chuyển Level (Next Level)</label>
                                                 <div className="flex gap-2">
                                                     <select 
-                                                        value={activeTour.soundsConfig.nextLevel} 
+                                                        value={currentDraft.soundsConfig.nextLevel} 
                                                         onChange={(e) => {
-                                                            const newS = {...activeTour.soundsConfig, nextLevel: e.target.value};
-                                                            updateActiveTour('soundsConfig', newS);
+                                                            const newS = {...currentDraft.soundsConfig, nextLevel: e.target.value};
+                                                            updateDraftTourField('soundsConfig', newS);
                                                         }}
                                                         className="flex-1 bg-gray-900 border border-gray-700 rounded px-3 py-2 text-amber-300 font-bold"
                                                     >
@@ -2266,7 +2239,7 @@ function App() {
                                                         <option value="Digital Beep">Digital Beeps (Bíp Điện Tử)</option>
                                                     </select>
                                                     <button 
-                                                        onClick={() => playSoundEffect(activeTour.soundsConfig.nextLevel)} 
+                                                        onClick={() => playSoundEffect(currentDraft.soundsConfig.nextLevel)} 
                                                         className="bg-amber-500 hover:bg-amber-400 text-black px-3 py-2 rounded font-bold cursor-pointer transition"
                                                     >
                                                         🔊 Thử
@@ -2278,10 +2251,10 @@ function App() {
                                                 <label className="block text-gray-300 font-bold">☕ Khi Vào Break Time (Nghỉ Giải Lao)</label>
                                                 <div className="flex gap-2">
                                                     <select 
-                                                        value={activeTour.soundsConfig.breakStart} 
+                                                        value={currentDraft.soundsConfig.breakStart} 
                                                         onChange={(e) => {
-                                                            const newS = {...activeTour.soundsConfig, breakStart: e.target.value};
-                                                            updateActiveTour('soundsConfig', newS);
+                                                            const newS = {...currentDraft.soundsConfig, breakStart: e.target.value};
+                                                            updateDraftTourField('soundsConfig', newS);
                                                         }}
                                                         className="flex-1 bg-gray-900 border border-gray-700 rounded px-3 py-2 text-cyan-300 font-bold"
                                                     >
@@ -2289,7 +2262,7 @@ function App() {
                                                         <option value="Chime Bell">Chime Bell (Chuông Ngân Vang)</option>
                                                     </select>
                                                     <button 
-                                                        onClick={() => playSoundEffect(activeTour.soundsConfig.breakStart)} 
+                                                        onClick={() => playSoundEffect(currentDraft.soundsConfig.breakStart)} 
                                                         className="bg-cyan-600 hover:bg-cyan-500 text-white px-3 py-2 rounded font-bold cursor-pointer transition"
                                                     >
                                                         🔊 Thử
@@ -2302,13 +2275,21 @@ function App() {
 
                                 {wizardStep === 6 && (
                                     <div className="space-y-3 text-xs sm:text-sm bg-black/50 p-4 rounded-xl border border-gold/30">
-                                        <div className="text-gold-bright font-bold text-base">{activeTour.config.name}</div>
-                                        <div>Buy-in: {activeTour.config.buyIn} | Rebuy: {activeTour.config.rebuyPrice} | Starting Stack: {activeTour.config.startingStack.toLocaleString()}</div>
+                                        <div className="text-gold-bright font-bold text-base">{currentDraft.config.name}</div>
+                                        <div>Buy-in: {currentDraft.config.buyIn} | Rebuy: {currentDraft.config.rebuyPrice} | Starting Stack: {currentDraft.config.startingStack.toLocaleString()}</div>
                                     </div>
                                 )}
 
-                                <div className="flex justify-between mt-6 pt-4 border-t border-gray-800">
+                                <div className="flex justify-between items-center mt-6 pt-4 border-t border-gray-800">
                                     <button onClick={() => setWizardStep(prev => Math.max(1, prev - 1))} disabled={wizardStep === 1} className="px-4 py-2 rounded bg-gray-800 text-xs font-semibold disabled:opacity-40">Back</button>
+                                    
+                                    <button 
+                                        onClick={applyDraftChangesToLive} 
+                                        className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white text-xs font-extrabold shadow-lg transition flex items-center gap-2 cursor-pointer"
+                                    >
+                                        <i className="fa-solid fa-floppy-disk"></i> CẬP NHẬT HỆ THỐNG & NẠP TV VIEW
+                                    </button>
+
                                     <button onClick={() => { if (wizardStep < 6) setWizardStep(prev => prev + 1); else setActiveView('combined-dashboard'); }} className="px-5 py-2 rounded bg-gradient-to-r from-amber-500 to-yellow-600 text-black text-xs font-bold">
                                         {wizardStep === 6 ? 'Mở Dashboard Tivi' : 'Tiếp tục'}
                                     </button>
