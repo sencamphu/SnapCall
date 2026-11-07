@@ -240,6 +240,14 @@ const mockLeaderboardData = [
     { rank: 10, name: 'Nghêm Việt K', phoneLast4: '8901', monthElo: 490, quarterElo: 1410 }
 ];
 
+const getTodayDateString = () => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+};
+
 const defaultTourTemplate = (name, id, buyIn, rebuyPrice) => ({
     id: id || 101,
     config: {
@@ -248,6 +256,7 @@ const defaultTourTemplate = (name, id, buyIn, rebuyPrice) => ({
         clubName: 'SNAP CALL',
         subTitle: 'BOARD GAME & COFFEE',
         name: name || 'SNAP HYPER',
+        scheduledStartDate: getTodayDateString(),
         scheduledStartTime: '13:00',
         enableScheduledTimer: true,
         maxLeaderboardTop: 10,
@@ -301,7 +310,8 @@ const defaultTourTemplate = (name, id, buyIn, rebuyPrice) => ({
         currentStepIdx: 3,
         secondsLeft: 823,
         targetEndTime: null,
-        isPaused: true
+        isPaused: true,
+        isFinished: false
     }
 });
 
@@ -420,14 +430,20 @@ function TournamentTVCard({ tour, openSinglePopout, isPopoutWindow }) {
 
                     <div className="inline-block border border-gold/40 rounded-xl px-3 sm:px-5 py-0.5 bg-black/50 max-w-full">
                         <span className="font-bold text-gray-200 tracking-widest uppercase block text-center" style={{ fontSize: `${fontSizes.levelBadgePx || 22}px` }}>
-                            {currentStep.type === 'break' 
-                                ? `BREAK TIME ${currentStep.title ? `(${currentStep.title})` : ''} ${currentStep.isChipRace ? '- CHIP RACE' : ''}` 
-                                : `LEVEL ${currentLevelNum}`}
+                            {tour.gameStats.isFinished 
+                                ? '🏆 TOUR FINISHED' 
+                                : (currentStep.type === 'break' 
+                                    ? `BREAK TIME ${currentStep.title ? `(${currentStep.title})` : ''} ${currentStep.isChipRace ? '- CHIP RACE' : ''}` 
+                                    : `LEVEL ${currentLevelNum}`)}
                         </span>
                     </div>
 
                     <div className="py-1 flex justify-center items-center">
-                        {tour.gameStats.isPaused ? (
+                        {tour.gameStats.isFinished ? (
+                            <div className="font-timer font-black tracking-wider leading-none text-emerald-400 drop-shadow-lg" style={{ fontSize: `${fontSizes.timerPx || 120}px` }}>
+                                FINISHED
+                            </div>
+                        ) : tour.gameStats.isPaused ? (
                             <div className="font-timer font-black tracking-wider leading-none text-red-500 animate-pause-pulse drop-shadow-lg" style={{ fontSize: `${fontSizes.timerPx || 120}px` }}>
                                 PAUSED
                             </div>
@@ -439,17 +455,17 @@ function TournamentTVCard({ tour, openSinglePopout, isPopoutWindow }) {
                     </div>
 
                     <div className="font-bold tracking-wider" style={{ fontSize: `${fontSizes.blindsPx || 54}px`, color: themeStyle.blindsColor }}>
-                        {currentStep.type === 'break' ? (currentStep.isChipRace ? `CHIP RACE: ${currentStep.chipRaceTitle || 'REMOVE LOW CHIPS'}` : 'BREAK TIME') : `BLINDS : ${currentStep.sb.toLocaleString()} / ${currentStep.bb.toLocaleString()}`}
+                        {tour.gameStats.isFinished ? 'CẢM ƠN QUÝ HỘI VIÊN ĐÃ THAM GIA' : (currentStep.type === 'break' ? (currentStep.isChipRace ? `CHIP RACE: ${currentStep.chipRaceTitle || 'REMOVE LOW CHIPS'}` : 'BREAK TIME') : `BLINDS : ${currentStep.sb.toLocaleString()} / ${currentStep.bb.toLocaleString()}`)}
                     </div>
 
                     <div className="font-bold tracking-wider" style={{ fontSize: `${Math.max(14, (fontSizes.blindsPx || 54) - 10)}px`, color: themeStyle.blindsColor }}>
-                        {currentStep.type === 'break' ? (currentStep.isChipRace && currentStep.chipRaceTitle ? `RACE CHIP: ${currentStep.chipRaceTitle}` : '') : `ANTE : ${currentStep.ante.toLocaleString()}`}
+                        {tour.gameStats.isFinished ? 'HẸN GẶP LẠI Ở GIẢI ĐẤU TIẾP THEO' : (currentStep.type === 'break' ? (currentStep.isChipRace && currentStep.chipRaceTitle ? `RACE CHIP: ${currentStep.chipRaceTitle}` : '') : `ANTE : ${currentStep.ante.toLocaleString()}`)}
                     </div>
 
                     <div className="w-full max-w-xs mx-auto border-b border-gold/30 my-1"></div>
 
                     <div className="text-gray-300 font-medium" style={{ fontSize: `${fontSizes.nextLevelPx || 46}px` }}>
-                        Next: <span className="text-white font-semibold">{getNextLevelInfo(tour)}</span>
+                        Next: <span className="text-white font-semibold">{tour.gameStats.isFinished ? 'END GAME' : getNextLevelInfo(tour)}</span>
                     </div>
                 </div>
 
@@ -546,6 +562,8 @@ function App() {
 
     const isRemoteUpdating = useRef(false);
     const lastLocalString = useRef('');
+
+    // CỜ BẢO VỆ XUNG ĐỘT ĐỒNG BỘ: MÁY MỚI TRUY CẬP CHỈ ĐỌC (READ-ONLY GUARD)
     const userHasModified = useRef(false);
 
     const [appState, setAppState] = useState(() => {
@@ -576,16 +594,20 @@ function App() {
         setDraftConfigState(JSON.parse(JSON.stringify(activeTour)));
     }, [selectedTourId, activeTour]);
 
-    // TÍNH TOÁN VÀ ĐẾM NGƯỢC REALTIME CHO ĐỒNG HỒ KHAI MẠC (ĐÃ FIX LỖI KHÔNG BỊ VÒNG LẶP TRẢ VỀ 23:59:59)
+    // TÍNH TOÁN VÀ ĐẾM NGƯỢC REALTIME KHAI MẠC THEO NGÀY & GIỜ (SCHEDULING TIMESTAMP)
     useEffect(() => {
         const calcRemaining = () => {
-            const scheduledStr = activeTour.config.scheduledStartTime || '13:00';
-            const [targetHrs, targetMins] = scheduledStr.split(':').map(Number);
+            const startDateStr = activeTour.config.scheduledStartDate || getTodayDateString();
+            const startTimeStr = activeTour.config.scheduledStartTime || '13:00';
+            
+            const [yyyy, mm, dd] = startDateStr.split('-').map(Number);
+            const [hrs, mins] = startTimeStr.split(':').map(Number);
+            
+            const targetDate = new Date(yyyy, mm - 1, dd, hrs, mins, 0);
             const now = new Date();
-            const targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), targetHrs, targetMins, 0);
             
             const diffSecs = Math.floor((targetDate.getTime() - now.getTime()) / 1000);
-            return diffSecs; // Trả về âm nếu đã qua mốc giờ khai mạc trong ngày
+            return diffSecs;
         };
 
         setPreTourCountdownSecs(calcRemaining());
@@ -595,7 +617,29 @@ function App() {
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [activeTour.config.scheduledStartTime]);
+    }, [activeTour.config.scheduledStartDate, activeTour.config.scheduledStartTime]);
+
+    // LỊCH TỰ ĐỘNG DỌN DẸP TOUR KẾT THÚC LÚC 02:00 AM SÁNG HÔM SAU
+    useEffect(() => {
+        const cleanupInterval = setInterval(() => {
+            const now = new Date();
+            if (now.getHours() === 2 && now.getMinutes() === 0) {
+                setAppState(prev => {
+                    const remainingTours = prev.tours.filter(t => !t.gameStats.isFinished);
+                    if (remainingTours.length > 0 && remainingTours.length !== prev.tours.length) {
+                        userHasModified.current = true;
+                        return {
+                            ...prev,
+                            tours: remainingTours,
+                            selectedTourId: remainingTours[0].id
+                        };
+                    }
+                    return prev;
+                });
+            }
+        }, 60000);
+        return () => clearInterval(cleanupInterval);
+    }, []);
 
     const setSelectedTourId = (newTourId) => {
         userHasModified.current = true;
@@ -608,7 +652,7 @@ function App() {
         });
     };
 
-    // ĐỒNG BỘ MẠNH MẼ KHẮC PHỤC THIẾT BỊ 2 HIỂN THỊ THIẾU TOUR
+    // ĐỒNG BỘ REALTIME CHỐNG GHI ĐÈ NGƯỢC TỪ MÁY KHÁCH
     useEffect(() => {
         if (window.initCloudSync) {
             window.initCloudSync(
@@ -623,7 +667,6 @@ function App() {
                             isRemoteUpdating.current = true;
                             lastLocalString.current = newStr;
                             setAppState(prev => {
-                                // Giữ lại selectedTourId nếu vẫn tồn tại trong danh sách mới
                                 const tourExists = normalizedState.tours?.some(t => t.id === prev.selectedTourId);
                                 const validTourId = tourExists ? prev.selectedTourId : (normalizedState.tours[0]?.id || 101);
                                 return {
@@ -645,6 +688,7 @@ function App() {
             const currentStr = JSON.stringify(appState);
             localStorage.setItem('poker_tournaments_live_v6', currentStr);
             
+            // CHỈ PHÁT SÓNG LÊN CLOUD KHI ĐƯỢC KÍCH HOẠT TỪ HÀNH ĐỘNG CỦA ADMIN (USER HAS MODIFIED)
             if (userHasModified.current && !isRemoteUpdating.current && currentStr !== lastLocalString.current) {
                 lastLocalString.current = currentStr;
                 userHasModified.current = false;
@@ -762,7 +806,7 @@ function App() {
             setAppState(prevState => {
                 let changed = false;
                 const newTours = prevState.tours.map(tour => {
-                    if (tour.gameStats.isPaused || !tour.gameStats.targetEndTime) {
+                    if (tour.gameStats.isPaused || tour.gameStats.isFinished || !tour.gameStats.targetEndTime) {
                         return tour;
                     }
 
@@ -873,6 +917,7 @@ function App() {
         }
     };
 
+    // SỬA LỖI TẠO STATE MỚI KHI THAY ĐỔI CHỈ SỐ ĐẤU MÀ KHÔNG BỊ RESETS
     const handleStatChange = (field, delta) => {
         userHasModified.current = true;
         setAppState(prev => ({
@@ -915,6 +960,7 @@ function App() {
                             gameStats: {
                                 ...t.gameStats,
                                 isPaused: false,
+                                isFinished: false,
                                 targetEndTime: now + (t.gameStats.secondsLeft * 1000)
                             }
                         };
@@ -923,6 +969,29 @@ function App() {
                 return t;
             })
         }));
+    };
+
+    const finishTour = (tourId) => {
+        if (window.confirm("Bạn có chắc chắn muốn KẾT THÚC Tour đấu này? Giao diện TV sẽ hiển thị vinh danh kết thúc.")) {
+            userHasModified.current = true;
+            setAppState(prev => ({
+                ...prev,
+                tours: prev.tours.map(t => {
+                    if (t.id === tourId) {
+                        return {
+                            ...t,
+                            gameStats: {
+                                ...t.gameStats,
+                                isPaused: true,
+                                isFinished: true,
+                                targetEndTime: null
+                            }
+                        };
+                    }
+                    return t;
+                })
+            }));
+        }
     };
 
     const adjustTimerSeconds = (tourId, deltaSeconds) => {
@@ -1463,7 +1532,7 @@ function App() {
                                                         : 'bg-gray-900 text-gray-300 border border-gray-800'
                                                 }`}
                                             >
-                                                <span className={`w-2 h-2 rounded-full ${t.gameStats.isPaused ? 'bg-red-500' : 'bg-emerald-400'}`}></span>
+                                                <span className={`w-2 h-2 rounded-full ${t.gameStats.isFinished ? 'bg-gray-500' : (t.gameStats.isPaused ? 'bg-red-500' : 'bg-emerald-400')}`}></span>
                                                 {t.config.name}
                                             </button>
                                         ))}
@@ -1495,11 +1564,16 @@ function App() {
                                         </div>
                                     </div>
 
-                                    {/* KHU VỰC ĐỒNG HỒ ĐẾM NGƯỢC GIỜ KHAI MẠC TOUR (ĐÃ SỬA CHUẨN REALTIME HIỆN THỊ LIÊN TỤC KHÔNG BỊ RESETS) */}
-                                    {preTourCountdownSecs > 0 ? (
+                                    {/* KHU VỰC ĐỒNG HỒ ĐẾM NGƯỢC KHAI MẠC REALTIME theo NGÀY & GIỜ */}
+                                    {activeTour.gameStats.isFinished ? (
+                                        <div className="bg-gradient-to-b from-gray-900 to-black/90 border border-gray-700 rounded-2xl p-4 text-center">
+                                            <div className="text-gold-bright font-black text-sm uppercase tracking-wider">🏆 TOUR ĐÃ KẾT THÚC</div>
+                                            <div className="text-[10px] text-gray-400 mt-1">Cảm ơn quý hội viên đã tham gia giải đấu</div>
+                                        </div>
+                                    ) : preTourCountdownSecs > 0 ? (
                                         <div className="bg-gradient-to-b from-amber-950/70 to-black/90 border border-gold/40 rounded-2xl p-4 text-center">
                                             <div className="text-amber-400 font-bold text-xs uppercase mb-1 flex items-center justify-center gap-1.5">
-                                                <i className="fa-solid fa-clock animate-spin"></i> GIẢI ĐẤU BẮT ĐẦU LÚC: {activeTour.config.scheduledStartTime || '13:00'}
+                                                <i className="fa-solid fa-clock animate-spin"></i> GIẢI BẮT ĐẦU: {activeTour.config.scheduledStartDate || 'Hôm nay'} ({activeTour.config.scheduledStartTime || '13:00'})
                                             </div>
                                             <div className="font-timer text-3xl sm:text-4xl font-black text-white py-1 text-gold-bright drop-shadow">
                                                 {formatTimeHHMMSS(preTourCountdownSecs)}
@@ -1526,7 +1600,7 @@ function App() {
                             </div>
                         </div>
 
-                        {/* BÊN PHẢI: BẢNG XẾP HẠNG ELO HỘI VIÊN (ĐÃ KHẮC PHỤC CHIỀU CAO VỪA VẶN SỐ LƯỢNG TOP) */}
+                        {/* BÊN PHẢI: BẢNG XẾP HẠNG ELO HỘI VIÊN */}
                         <div className="lg:col-span-7 space-y-4">
                             <div className="gold-border-box bg-black/85 backdrop-blur-md rounded-3xl p-4 sm:p-5 shadow-2xl flex flex-col justify-between">
                                 <div>
@@ -1699,7 +1773,7 @@ function App() {
                                                 : 'bg-gray-900/80 text-gray-300 border-gray-700 hover:border-gold/50'
                                         }`}
                                     >
-                                        <span className={`w-2 h-2 rounded-full ${t.gameStats.isPaused ? 'bg-red-500' : 'bg-emerald-400'}`}></span>
+                                        <span className={`w-2 h-2 rounded-full ${t.gameStats.isFinished ? 'bg-gray-500' : (t.gameStats.isPaused ? 'bg-red-500' : 'bg-emerald-400')}`}></span>
                                         <span>{t.config.name}</span>
                                         {tournaments.length > 1 && (
                                             <button 
@@ -1805,9 +1879,18 @@ function App() {
                                             </div>
                                         </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-amber-950/30 p-4 rounded-xl border border-amber-500/40">
+                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 bg-amber-950/30 p-4 rounded-xl border border-amber-500/40">
                                             <div>
-                                                <label className="block text-amber-300 mb-1 font-bold">Giờ Khai Mạc Tour (Scheduled Time)</label>
+                                                <label className="block text-amber-300 mb-1 font-bold">Ngày Khai Mạc Tour</label>
+                                                <input 
+                                                    type="date" 
+                                                    value={draftConfigState.config.scheduledStartDate || getTodayDateString()} 
+                                                    onChange={(e) => updateDraftConfig('scheduledStartDate', e.target.value)} 
+                                                    className="w-full bg-gray-900 border border-amber-500/50 rounded-lg p-3 text-amber-300 font-bold text-base" 
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-amber-300 mb-1 font-bold">Giờ Khai Mạc Tour</label>
                                                 <input 
                                                     type="text" 
                                                     value={draftConfigState.config.scheduledStartTime || ''} 
@@ -1817,7 +1900,7 @@ function App() {
                                                 />
                                             </div>
                                             <div>
-                                                <label className="block text-amber-300 mb-1 font-bold">Bật Đếm Ngược Hẹn Giờ Khai Mạc</label>
+                                                <label className="block text-amber-300 mb-1 font-bold">Đếm Ngược Khai Mạc</label>
                                                 <button
                                                     type="button"
                                                     onClick={() => updateDraftConfig('enableScheduledTimer', !draftConfigState.config.enableScheduledTimer)}
@@ -1827,11 +1910,11 @@ function App() {
                                                             : 'bg-gray-800 text-gray-400 border border-gray-700'
                                                     }`}
                                                 >
-                                                    {draftConfigState.config.enableScheduledTimer ? '✓ ĐANG BẬT ĐẾM NGƯỢC CHỜ GIỜ' : '✕ TẮT (DASHBOARD CHẠY NGAY)'}
+                                                    {draftConfigState.config.enableScheduledTimer ? '✓ BẬT CHỜ GIỜ' : '✕ TẮT (CHẠY NGAY)'}
                                                 </button>
                                             </div>
                                             <div>
-                                                <label className="block text-amber-300 mb-1 font-bold">Số Lượng Top Elo Hiển Thị TV</label>
+                                                <label className="block text-amber-300 mb-1 font-bold">Số Top Elo Hiển Thị TV</label>
                                                 <input 
                                                     type="number" 
                                                     value={draftConfigState.config.maxLeaderboardTop || 10} 
@@ -2128,6 +2211,15 @@ function App() {
                                     >
                                         {activeTour.gameStats.isPaused ? '▶ START / RESUME' : '⏸ PAUSE'}
                                     </button>
+
+                                    <button 
+                                        onClick={() => finishTour(activeTour.id)}
+                                        className="px-4 py-1.5 rounded bg-red-900/80 hover:bg-red-800 text-red-200 border border-red-600/50 text-xs font-bold transition"
+                                        title="Kết thúc tour này"
+                                    >
+                                        🏁 KẾT THÚC TOUR
+                                    </button>
+
                                     <button 
                                         onClick={() => nextStepTour(activeTour.id)}
                                         className="px-3 py-1.5 rounded bg-gray-800 hover:bg-gray-700 text-gold border border-gold/30 text-xs font-bold transition"
