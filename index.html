@@ -1,4 +1,4 @@
-```html
+
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -55,7 +55,6 @@
                     }
                 };
                 
-                // Chạy ngay lập tức 0ms
                 fetchData();
 
                 // Đăng ký kênh Realtime WebSocket
@@ -73,8 +72,8 @@
                     })
                     .subscribe();
 
-                // Polling dự phòng 2s/lần
-                setInterval(fetchData, 2000);
+                // Polling dự phòng 1.5s/lần đảm bảo không bao giờ lệch tour
+                setInterval(fetchData, 1500);
 
                 // ÉP LƯU DỮ LIỆU LÊN CLOUD SUPABASE
                 window.saveTournamentsToCloud = async (appDataState) => {
@@ -683,7 +682,11 @@ function App() {
 
     const [appState, setAppState] = useState(() => {
         return {
-            tours: [defaultTourTemplate('MONTER STACK', 101, 100, 100)],
+            tours: [
+                defaultTourTemplate('MONTER STACK', 101, 100, 100),
+                defaultTourTemplate('HIGH ROLLER', 102, 500, 500),
+                defaultTourTemplate('SNAP HYPER', 103, 50, 50)
+            ],
             presets: [],
             selectedTourId: 101,
             lastUpdated: 0
@@ -753,15 +756,10 @@ function App() {
         if (window.initCloudSync) {
             window.initCloudSync(
                 (cloudState, isFromRemote) => {
-                    if (cloudState) {
-                        let normalizedState = cloudState;
-                        if (Array.isArray(cloudState)) {
-                            normalizedState = { tours: cloudState, presets: [], selectedTourId: cloudState[0]?.id || 101, lastUpdated: Date.now() };
-                        }
-                        
-                        setAppState(normalizedState);
-                        if (normalizedState.selectedTourId) {
-                            setAdminSetupTourId(normalizedState.selectedTourId);
+                    if (cloudState && cloudState.tours && Array.isArray(cloudState.tours)) {
+                        setAppState(cloudState);
+                        if (cloudState.selectedTourId) {
+                            setAdminSetupTourId(cloudState.selectedTourId);
                         }
                     }
                 },
@@ -1686,7 +1684,7 @@ function App() {
                                     ) : (
                                         <div className="bg-gradient-to-b from-emerald-950/80 to-black/90 border border-emerald-500/50 rounded-2xl p-4 text-center shadow-lg">
                                             <div className="text-emerald-400 font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2">
-                                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span> 🟢 TOUR ĐANG DIỄN RA
+                                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span> 🟢 TOUR Đang DIỄN RA
                                             </div>
                                             <div className="text-[11px] text-gray-300 mt-1 font-medium">Giải đấu đã chính thức khởi tranh</div>
                                         </div>
@@ -2493,4 +2491,3 @@ ReactDOM.render(<App />, document.getElementById('root'));
     </script>
 </body>
 </html>
-```
