@@ -1,4 +1,4 @@
-```html
+
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -25,8 +25,6 @@
         const SUPABASE_URL = "https://mkizhwumwxfqlwwfoief.supabase.co";
         const SUPABASE_ANON_KEY = "sb_publishable_XL_p7DDfizVqdz_mETXztw_7MecHfiQ";
 
-        window.isFirstCloudSyncDone = false;
-        window.lastCloudTimestamp = 0;
         window.popoutBroadcastChannel = new BroadcastChannel('snapcall_popout_sync');
 
         window.initCloudSync = async function(onDataReceived, onSyncStatusChange) {
@@ -40,76 +38,53 @@
                 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
                 onSyncStatusChange(true);
 
-                // TẢI TRỰC TIẾP DỮ LIỆU TỪ CLOUD SUPABASE KHI TRANG VỪA MỞ LÊN (0ms DELAY)
+                // HÀM TẢI TRỰC TIẾP DỮ LIỆU TỪ CLOUD SUPABASE (CHẮC CHẮN 100% LẤY TRẮNG TỪ DATABASE)
                 const fetchData = async () => {
                     const { data, error } = await supabaseClient
                         .from('tournaments')
-                        .select('data, updated_at')
+                        .select('data')
                         .eq('id', 'live_state')
                         .maybeSingle();
 
                     if (data && data.data) {
-                        const recordTime = data.updated_at ? new Date(data.updated_at).getTime() : Date.now();
-                        window.lastCloudTimestamp = recordTime;
-                        window.isFirstCloudSyncDone = true;
-                        // ÉP TRỰC TIẾP TOÀN BỘ STATE CLOUD BAO GỒM CẢ SELECTED_TOUR_ID
                         onDataReceived(data.data, true);
-                    } else {
-                        window.isFirstCloudSyncDone = true;
                     }
                 };
+                
+                // Tải dữ liệu từ cloud ngay khi mở web
                 fetchData();
 
-                // LÊN LỊCH QUÉT ĐỊNH KỲ MỖI 2 GIÂY CHỐNG NGHẼN WEBSOCKET REALTIME
-                setInterval(fetchData, 2000);
-
-                // LẮNG NGHE LỆNH REALTIME TỪ CÁC THIẾT BỊ KHÁC
+                // Đăng ký kênh Realtime để nhận thông báo thay đổi tức thì từ Admin
                 const channel = supabaseClient
-                    .channel('room_poker_live', { config: { broadcast: { self: false } } })
+                    .channel('room_poker_live', { config: { broadcast: { self: true } } })
                     .on('postgres_changes', { event: '*', schema: 'public', table: 'tournaments' }, payload => {
                         if (payload.new && payload.new.data) {
-                            const recordTime = payload.new.updated_at ? new Date(payload.new.updated_at).getTime() : Date.now();
-                            if (recordTime >= window.lastCloudTimestamp) {
-                                window.lastCloudTimestamp = recordTime;
-                                window.isFirstCloudSyncDone = true;
-                                onDataReceived(payload.new.data, true);
-                            }
+                            onDataReceived(payload.new.data, true);
                         }
                     })
                     .on('broadcast', { event: 'tour_update' }, payload => {
                         if (payload.payload && payload.payload.data) {
-                            const recordTime = payload.payload.timestamp || Date.now();
-                            if (recordTime >= window.lastCloudTimestamp) {
-                                window.lastCloudTimestamp = recordTime;
-                                window.isFirstCloudSyncDone = true;
-                                onDataReceived(payload.payload.data, true);
-                            }
+                            onDataReceived(payload.payload.data, true);
                         }
                     })
                     .subscribe();
 
-                let dbSaveTimeout = null;
+                // HÀM ÉP LƯU DỮ LIỆU LÊN CLOUD VÀ PHÁT BROADCAST ĐẾN TẤT CẢ THIẾT BỊ KHÁC
                 window.saveTournamentsToCloud = async (appDataState) => {
-                    if (!window.isFirstCloudSyncDone) return;
-                    
-                    const nowTime = Date.now();
-                    window.lastCloudTimestamp = nowTime;
-
                     window.popoutBroadcastChannel.postMessage({ data: appDataState });
 
                     try {
+                        // 1. Phát tức thì tới các máy đang mở web
                         channel.send({
                             type: 'broadcast',
                             event: 'tour_update',
-                            payload: { data: appDataState, timestamp: nowTime }
+                            payload: { data: appDataState }
                         });
 
-                        if (dbSaveTimeout) clearTimeout(dbSaveTimeout);
-                        dbSaveTimeout = setTimeout(async () => {
-                            await supabaseClient
-                                .from('tournaments')
-                                .upsert({ id: 'live_state', data: appDataState, updated_at: new Date(nowTime).toISOString() });
-                        }, 100);
+                        // 2. Ghi đè cứng vào Database Supabase để máy vào sau/máy ẩn danh tải về đúng 100%
+                        await supabaseClient
+                            .from('tournaments')
+                            .upsert({ id: 'live_state', data: appDataState, updated_at: new Date().toISOString() });
                     } catch (e) {
                         console.warn("Lỗi lưu Supabase Cloud:", e);
                     }
@@ -593,10 +568,6 @@ function App() {
     const [pinInput, setPinInput] = useState('');
     const [loginError, setLoginError] = useState('');
 
-    const isRemoteUpdating = useRef(false);
-    const lastLocalString = useRef('');
-    const userHasModified = useRef(false);
-
     const [appState, setAppState] = useState(() => {
         const saved = localStorage.getItem('poker_tournaments_live_v6');
         if (saved) {
@@ -658,12 +629,15 @@ function App() {
                 setAppState(prev => {
                     const remainingTours = prev.tours.filter(t => !t.gameStats.isFinished);
                     if (remainingTours.length > 0 && remainingTours.length !== prev.tours.length) {
-                        userHasModified.current = true;
-                        return {
+                        const nextState = {
                             ...prev,
                             tours: remainingTours,
                             selectedTourId: remainingTours[0].id
                         };
+                        if (window.saveTournamentsToCloud) {
+                            window.saveTournamentsToCloud(nextState);
+                        }
+                        return nextState;
                     }
                     return prev;
                 });
@@ -672,9 +646,8 @@ function App() {
         return () => clearInterval(cleanupInterval);
     }, []);
 
-    // ĐẤY DỮ LIỆU LÊN CLOUD NGAY LẬP TỨC KHI CHỌN TOUR MỚI (0ms DELAY)
+    // HÀM CHỌN TOUR VÀ ÉP ĐẨY LÊN CLOUD NGAY LẬP TỨC 100%
     const setSelectedTourId = (newTourId) => {
-        userHasModified.current = true;
         setAppState(prev => {
             const nextState = { ...prev, selectedTourId: newTourId };
             if (window.saveTournamentsToCloud) {
@@ -684,7 +657,7 @@ function App() {
         });
     };
 
-    // ĐỒNG BỘ REALTIME TỰ ĐỘNG KHI THIẾT BỊ MỚI VÀO - ÉP 100% THIẾT BỊ MỚI NHẬN TOUR ĐANG CHẠY CÙNG EPOCH TIMESTAMPS
+    // KHỞI TẠO ĐỒNG BỘ SUPABASE REALTIME KHI VỪA MỞ WEB
     useEffect(() => {
         if (window.initCloudSync) {
             window.initCloudSync(
@@ -694,11 +667,8 @@ function App() {
                         if (Array.isArray(cloudState)) {
                             normalizedState = { tours: cloudState, presets: [], selectedTourId: cloudState[0]?.id || 101 };
                         }
-                        
-                        isRemoteUpdating.current = true;
-                        lastLocalString.current = JSON.stringify(normalizedState);
+                        // GHI ĐÈ TRỰC TIẾP TOÀN BỘ STATE TỪ SUPABASE CLOUD LÊN GIAO DIỆN MÁY MỚI / ẨN DANH
                         setAppState(normalizedState);
-                        setTimeout(() => { isRemoteUpdating.current = false; }, 300);
                     }
                 },
                 (status) => setIsCloudSynced(status)
@@ -706,22 +676,13 @@ function App() {
         }
     }, []);
 
+    // LƯU STATE LOCAL CACHE
     useEffect(() => {
         try {
             const currentStr = JSON.stringify(appState);
             localStorage.setItem('poker_tournaments_live_v6', currentStr);
-            
             if (window.popoutBroadcastChannel) {
                 window.popoutBroadcastChannel.postMessage({ data: appState });
-            }
-
-            // CHỈ GỬI LÊN CLOUD KHI USER CÓ THAO TÁC THỰC TẾ (NÚT BẤM / ĐỔI TOUR / EDIT)
-            if (userHasModified.current && window.isFirstCloudSyncDone && !isRemoteUpdating.current && currentStr !== lastLocalString.current) {
-                lastLocalString.current = currentStr;
-                userHasModified.current = false;
-                if (window.saveTournamentsToCloud) {
-                    window.saveTournamentsToCloud(appState);
-                }
             }
         } catch(e) {
             console.warn("Storage quota limit:", e);
@@ -729,7 +690,6 @@ function App() {
     }, [appState]);
 
     const applyDraftChangesToLive = () => {
-        userHasModified.current = true;
         setAppState(prev => {
             const nextState = {
                 ...prev,
@@ -952,7 +912,6 @@ function App() {
     };
 
     const handleStatChange = (field, delta) => {
-        userHasModified.current = true;
         setAppState(prev => {
             const nextState = {
                 ...prev,
@@ -977,7 +936,6 @@ function App() {
     };
 
     const togglePauseTour = (tourId) => {
-        userHasModified.current = true;
         const now = Date.now();
         setAppState(prev => {
             const nextState = {
@@ -1018,7 +976,6 @@ function App() {
 
     const finishTour = (tourId) => {
         if (window.confirm("Bạn có chắc chắn muốn KẾT THÚC Tour đấu này? Giao diện TV sẽ hiển thị vinh danh kết thúc.")) {
-            userHasModified.current = true;
             setAppState(prev => {
                 const nextState = {
                     ...prev,
@@ -1046,7 +1003,6 @@ function App() {
     };
 
     const adjustTimerSeconds = (tourId, deltaSeconds) => {
-        userHasModified.current = true;
         const now = Date.now();
         setAppState(prev => {
             const nextState = {
@@ -1074,13 +1030,11 @@ function App() {
     };
 
     const addNewTournament = () => {
-        userHasModified.current = true;
         const newId = Date.now();
-        const newTour = defaultTourTemplate(`TOUR #${tournaments.length + 1}`, newId, 100, 100);
+        const newTour = defaultTourTemplate(`MONTER STACK`, newId, 100, 100);
         newTour.gameStats.isPaused = true;
         newTour.gameStats.targetEndTime = null;
 
-        isRemoteUpdating.current = false;
         setAppState(prev => {
             const nextState = { ...prev, tours: [...prev.tours, newTour], selectedTourId: newId };
             if (window.saveTournamentsToCloud) {
@@ -1096,8 +1050,6 @@ function App() {
             return;
         }
         if (window.confirm("Xóa giải đấu này khỏi hệ thống?")) {
-            userHasModified.current = true;
-            isRemoteUpdating.current = false;
             const remaining = tournaments.filter(t => t.id !== tourId);
             setAppState(prev => {
                 const nextState = { ...prev, tours: remaining, selectedTourId: remaining[0].id };
@@ -1113,7 +1065,6 @@ function App() {
         const presetName = prompt("Nhập tên để lưu mẫu Tour này (vd: Monster Stack 100k, High Roller 500k):", activeTour.config.name);
         if (!presetName) return;
 
-        userHasModified.current = true;
         const newPreset = {
             id: Date.now(),
             name: presetName,
@@ -1135,7 +1086,6 @@ function App() {
 
     const applyPresetToActiveTour = (presetObj) => {
         if (window.confirm(`Bạn có muốn nạp mẫu tour "${presetObj.name}" đè lên tour "${activeTour.config.name}" hiện tại?`)) {
-            userHasModified.current = true;
             const loaded = JSON.parse(JSON.stringify(presetObj.tourTemplate));
             loaded.id = selectedTourId;
             loaded.gameStats.isPaused = true;
@@ -1156,7 +1106,6 @@ function App() {
 
     const deletePreset = (presetId, presetName) => {
         if (window.confirm(`Bạn có chắc chắn muốn XÓA mẫu tour "${presetName}" khỏi thư viện?`)) {
-            userHasModified.current = true;
             setAppState(prev => {
                 const nextState = {
                     ...prev,
@@ -1188,8 +1137,6 @@ function App() {
                 try {
                     const parsedData = JSON.parse(event.target.result);
                     if (parsedData && parsedData.config && parsedData.blinds) {
-                        userHasModified.current = true;
-                        isRemoteUpdating.current = false;
                         setAppState(prev => {
                             const nextState = {
                                 ...prev,
@@ -1215,8 +1162,6 @@ function App() {
                         });
                         alert(`Đã cập nhật tour "${parsedData.config.name}" thành công!`);
                     } else if (Array.isArray(parsedData) && parsedData.length > 0) {
-                        userHasModified.current = true;
-                        isRemoteUpdating.current = false;
                         setAppState(prev => {
                             const nextState = { ...prev, tours: parsedData, selectedTourId: parsedData[0].id };
                             if (window.saveTournamentsToCloud) {
@@ -1403,7 +1348,6 @@ function App() {
     };
 
     const nextStepTour = (tourId) => {
-        userHasModified.current = true;
         const now = Date.now();
         setAppState(prev => {
             const nextState = {
@@ -1433,7 +1377,6 @@ function App() {
     };
 
     const prevStepTour = (tourId) => {
-        userHasModified.current = true;
         const now = Date.now();
         setAppState(prev => {
             const nextState = {
@@ -2471,4 +2414,3 @@ ReactDOM.render(<App />, document.getElementById('root'));
     </script>
 </body>
 </html>
-```
