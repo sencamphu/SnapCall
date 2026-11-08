@@ -182,6 +182,28 @@ html, body {
 <script type="text/babel">
 const { useState, useEffect, useRef } = React;
 
+// Component React Portal hỗ trợ Pop-out TV không bị đứng/đơ
+function PopoutPortal({ children, popoutWindow }) {
+    const containerEl = useRef(document.createElement('div'));
+
+    useEffect(() => {
+        const container = containerEl.current;
+        container.className = "w-full h-full flex flex-col justify-center items-center p-0 m-0 overflow-hidden";
+        if (popoutWindow && popoutWindow.document && popoutWindow.document.body) {
+            popoutWindow.document.body.appendChild(container);
+        }
+        return () => {
+            if (popoutWindow && popoutWindow.document && popoutWindow.document.body) {
+                try {
+                    popoutWindow.document.body.removeChild(container);
+                } catch(e) {}
+            }
+        };
+    }, [popoutWindow]);
+
+    return ReactDOM.createPortal(children, containerEl.current);
+}
+
 const fontOptions = [
     { label: 'Mẫu 1: Montserrat Pro', value: 'font-montserrat' },
     { label: 'Mẫu 2: Impact Arena', value: 'font-impact' },
@@ -569,13 +591,16 @@ function TournamentTVCard({ tour, openSinglePopout, isPopoutWindow }) {
                         )}
                     </div>
 
+                    {/* HIỂN THỊ BLINDS / BREAK TIME (LOẠI BỎ DÒNG RACE CHIP TRONG TV VIEW) */}
                     <div className="font-bold tracking-wider" style={{ fontSize: `${fontSizes.blindsPx || 54}px`, color: themeStyle.blindsColor }}>
-                        {tour.gameStats.isFinished ? 'CẢM ƠN QUÝ HỘI VIÊN ĐÃ THAM GIA' : (currentStep.type === 'break' ? (currentStep.isChipRace ? `CHIP RACE: ${currentStep.chipRaceTitle || 'REMOVE LOW CHIPS'}` : 'BREAK TIME') : `BLINDS : ${currentStep.sb.toLocaleString()} / ${currentStep.bb.toLocaleString()}`)}
+                        {tour.gameStats.isFinished ? 'CẢM ƠN QUÝ HỘI VIÊN ĐÃ THAM GIA' : (currentStep.type === 'break' ? 'BREAK TIME' : `BLINDS : ${currentStep.sb.toLocaleString()} / ${currentStep.bb.toLocaleString()}`)}
                     </div>
 
-                    <div className="font-bold tracking-wider" style={{ fontSize: `${Math.max(14, (fontSizes.blindsPx || 54) - 10)}px`, color: themeStyle.blindsColor }}>
-                        {tour.gameStats.isFinished ? 'HẸN GẶP LẠI Ở GIẢI ĐẤU TIẾP THEO' : (currentStep.type === 'break' ? (currentStep.isChipRace && currentStep.chipRaceTitle ? `RACE CHIP: ${currentStep.chipRaceTitle}` : '') : `ANTE : ${currentStep.ante.toLocaleString()}`)}
-                    </div>
+                    {currentStep.type !== 'break' && !tour.gameStats.isFinished && (
+                        <div className="font-bold tracking-wider" style={{ fontSize: `${Math.max(14, (fontSizes.blindsPx || 54) - 10)}px`, color: themeStyle.blindsColor }}>
+                            ANTE : {currentStep.ante.toLocaleString()}
+                        </div>
+                    )}
 
                     <div className="w-full max-w-sm mx-auto border-b border-gold/30 my-2"></div>
 
@@ -664,6 +689,8 @@ function App() {
     const [showFontSizesCollapse, setShowFontSizesCollapse] = useState(false);
 
     const [preTourCountdownSecs, setPreTourCountdownSecs] = useState(0);
+    const [popoutWindow, setPopoutWindow] = useState(null);
+    const [popoutTourId, setPopoutTourId] = useState(null);
 
     const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
         return localStorage.getItem('snapcall_admin_auth') === 'true';
@@ -694,7 +721,6 @@ function App() {
 
     const currentPublicDisplayId = publicViewTourId || masterSelectedTourId;
     const activePublicTour = tournaments.find(t => t.id === currentPublicDisplayId) || tournaments.find(t => t.id === masterSelectedTourId) || tournaments[0] || defaultTourTemplate('MONTER STACK', 101, 100, 100);
-
     const activeAdminTour = tournaments.find(t => t.id === adminSetupTourId) || tournaments.find(t => t.id === masterSelectedTourId) || tournaments[0] || defaultTourTemplate('MONTER STACK', 101, 100, 100);
 
     const [draftConfigState, setDraftConfigState] = useState(() => JSON.parse(JSON.stringify(activeAdminTour)));
@@ -1061,6 +1087,7 @@ function App() {
         });
     };
 
+    // TẠO TOUR MỚI: TỰ ĐỘNG LƯU SUPABASE CLOUD NGAY TẠI THỜI ĐIỂM BẤM NÚT
     const addNewTournament = () => {
         if (!isAdminLoggedIn) return;
         const newId = Date.now();
@@ -1083,6 +1110,7 @@ function App() {
         setAdminSetupTourId(newId);
     };
 
+    // XÓA TOUR: TỰ ĐỘNG ĐỒNG BỘ CLOUD NGAY LẬP TỨC
     const removeTournament = (tourId) => {
         if (!isAdminLoggedIn) return;
         if (tournaments.length <= 1) {
@@ -1234,48 +1262,21 @@ function App() {
         }
     };
 
+    // MỞ CỬA SỔ POPOUT TV BẰNG REACT PORTALS (MƯỢT 100%, KHÔNG KHỰA/ĐƠ)
     const openSinglePopoutWindow = (targetTourId) => {
-        const popoutWindow = window.open('', '_blank', 'width=1280,height=720,left=0,top=0');
-        if (!popoutWindow) return;
+        const popWindow = window.open('', '_blank', 'width=1280,height=720,left=0,top=0');
+        if (!popWindow) return;
 
-        popoutWindow.document.write(`<!DOCTYPE html> <html lang="vi"> <head> <meta charset="UTF-8"> <title>Poker TV Display - Snap Call</title> ${document.head.innerHTML} </head> <body class="w-full h-full poker-bg flex flex-col justify-center p-0 m-0 overflow-hidden"> <div id="popout-root" class="w-full h-full flex flex-col justify-center p-2 box-border"></div> </body> </html>`);
-        popoutWindow.document.close();
+        popWindow.document.write(`<!DOCTYPE html> <html lang="vi"> <head> <meta charset="UTF-8"> <title>Poker TV Display - Snap Call</title> ${document.head.innerHTML} </head> <body class="w-full h-full poker-bg flex flex-col justify-center p-0 m-0 overflow-hidden"> </body> </html>`);
+        popWindow.document.close();
 
-        let currentPopoutState = appState;
+        setPopoutTourId(targetTourId);
+        setPopoutWindow(popWindow);
 
-        const renderPopoutContainer = (stateToRender) => {
-            const popoutRoot = popoutWindow.document.getElementById('popout-root');
-            if (!popoutRoot) return;
-
-            const targetTour = (stateToRender.tours || []).find(t => t.id === targetTourId) || (stateToRender.tours && stateToRender.tours[0]);
-            if (!targetTour) return;
-
-            ReactDOM.render(
-                <div className="w-full h-full flex flex-col justify-center items-center p-0 m-0 overflow-hidden">
-                    <TournamentTVCard tour={targetTour} isPopoutWindow={true} />
-                </div>,
-                popoutRoot
-            );
-        };
-
-        renderPopoutContainer(currentPopoutState);
-
-        const channel = new BroadcastChannel('snapcall_popout_sync');
-        channel.onmessage = (event) => {
-            if (event.data && event.data.data) {
-                currentPopoutState = event.data.data;
-                renderPopoutContainer(currentPopoutState);
-            }
-        };
-
-        const timer = setInterval(() => {
-            if (popoutWindow.closed) {
-                clearInterval(timer);
-                channel.close();
-            } else {
-                renderPopoutContainer(currentPopoutState);
-            }
-        }, 300);
+        popWindow.addEventListener('beforeunload', () => {
+            setPopoutWindow(null);
+            setPopoutTourId(null);
+        });
     };
 
     const calculateNextProfessionalBlind = (currentBb) => {
@@ -1484,8 +1485,17 @@ function App() {
         tourInfoPx: 18
     };
 
+    const targetPopoutTour = tournaments.find(t => t.id === popoutTourId) || activePublicTour;
+
     return (
         <div className="min-h-screen flex flex-col justify-between pb-20 md:pb-0">
+            {/* RENDER POPOUT TV BẰNG PORTAL */}
+            {popoutWindow && (
+                <PopoutPortal popoutWindow={popoutWindow}>
+                    <TournamentTVCard tour={targetPopoutTour} isPopoutWindow={true} />
+                </PopoutPortal>
+            )}
+
             {/* HEADER ĐIỀU HƯỚNG TOP BAR */}
             <header className="hidden md:flex w-full bg-black/90 backdrop-blur-md border-b border-gold/30 px-6 py-3 justify-between items-center z-50 text-sm">
                 <div className="flex items-center space-x-3">
