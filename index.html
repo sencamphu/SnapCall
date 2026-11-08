@@ -45,8 +45,10 @@ window.initCloudSync = async function(onDataReceived, onSyncStatusChange) {
                     .eq('id', 'live_state')
                     .maybeSingle();
 
-                if (data && data.data) {
+                if (data && data.data && data.data.tours && data.data.tours.length > 0) {
                     onDataReceived(data.data);
+                } else {
+                    console.log("Supabase Cloud chưa có dữ liệu, khởi tạo mặc định...");
                 }
             } catch(e) {
                 console.warn("Fetch Error:", e);
@@ -56,7 +58,7 @@ window.initCloudSync = async function(onDataReceived, onSyncStatusChange) {
         await fetchData();
 
         window.supabaseChannel = window.supabaseClient
-            .channel('room_poker_live_v28', { config: { broadcast: { self: true } } })
+            .channel('room_poker_live_v29', { config: { broadcast: { self: true } } })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'tournaments' }, payload => {
                 if (payload.new && payload.new.data) {
                     onDataReceived(payload.new.data);
@@ -92,9 +94,17 @@ window.saveAppStateToCloud = async (appDataState) => {
         }
 
         if (window.supabaseClient) {
-            await window.supabaseClient
+            const { error } = await window.supabaseClient
                 .from('tournaments')
-                .upsert({ id: 'live_state', data: payloadData, updated_at: new Date().toISOString() });
+                .upsert({ 
+                    id: 'live_state', 
+                    data: payloadData, 
+                    updated_at: new Date().toISOString() 
+                }, { onConflict: 'id' });
+
+            if (error) {
+                console.error("Lỗi Upsert Supabase:", error);
+            }
         }
 
         localStorage.setItem('snapcall_live_app_state', JSON.stringify(payloadData));
@@ -748,6 +758,12 @@ function App() {
                 },
                 (status) => setIsCloudSynced(status)
             );
+        }
+    }, []);
+
+    useEffect(() => {
+        if (appState && appState.tours && appState.tours.length > 0 && window.saveAppStateToCloud) {
+            window.saveAppStateToCloud(appState);
         }
     }, []);
 
