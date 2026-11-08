@@ -54,12 +54,12 @@ window.initCloudSync = async function(onDataReceived, onSyncStatusChange) {
             }
         };
 
-        // Tải dữ liệu ban đầu
+        // Tải dữ liệu ban đầu từ Cloud
         await fetchData();
 
         // Luồng 1: Lắng nghe sự kiện Realtime tức thì qua Supabase Broadcast & Postgres Changes
         window.supabaseChannel = window.supabaseClient
-            .channel('room_poker_live_v31', { config: { broadcast: { self: true } } })
+            .channel('room_poker_live_v32', { config: { broadcast: { self: true } } })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'tournaments' }, payload => {
                 if (payload.new && payload.new.data) {
                     onDataReceived(payload.new.data);
@@ -72,7 +72,7 @@ window.initCloudSync = async function(onDataReceived, onSyncStatusChange) {
             })
             .subscribe();
 
-        // Luồng 2 (Chuyên gia): Polling ngầm định kỳ 3 giây để đảm bảo 100% thiết bị luôn đồng bộ kể cả khi rớt mạng tạm thời
+        // Luồng 2: Polling ngầm định kỳ 3s kéo bản ghi Cloud
         setInterval(() => {
             fetchData();
         }, 3000);
@@ -83,18 +83,22 @@ window.initCloudSync = async function(onDataReceived, onSyncStatusChange) {
     }
 };
 
-window.saveAppStateToCloud = async (appDataState) => {
+// Hàm lưu dữ liệu lên Cloud chỉ được gọi từ thiết bị Admin hoặc khi bấm CẬP NHẬT
+window.saveAppStateToCloud = async (appDataState, forceSave = false) => {
     try {
+        const isAdminLogged = localStorage.getItem('snapcall_admin_auth') === 'true';
+        if (!isAdminLogged && !forceSave) {
+            return; // Khách hàng / Viewer chỉ được đọc, không được ghi đè
+        }
+
         const payloadData = {
             tours: appDataState.tours,
             presets: appDataState.presets || [],
             lastUpdated: appDataState.lastUpdated || Date.now()
         };
 
-        // Lưu ngay LocalStorage
         localStorage.setItem('snapcall_live_app_state', JSON.stringify(payloadData));
 
-        // Broadcast thời gian thực
         if (window.supabaseChannel) {
             window.supabaseChannel.send({
                 type: 'broadcast',
@@ -103,7 +107,6 @@ window.saveAppStateToCloud = async (appDataState) => {
             });
         }
 
-        // Ghi lên Database Supabase
         if (window.supabaseClient) {
             await window.supabaseClient
                 .from('tournaments')
@@ -160,27 +163,32 @@ html, body {
 
 .poker-bg {
     background:
-        radial-gradient(circle at center, rgba(30, 20, 10, 0.9) 0%, rgba(5, 5, 7, 0.98) 85%),
+        radial-gradient(circle at center, rgba(30, 20, 10, 0.92) 0%, rgba(5, 5, 7, 0.98) 85%),
         url('https://images.unsplash.com/photo-1511193311914-0346f16efe90?auto=format&fit=crop&w=1920&q=80') center/cover no-repeat;
 }
 
-/* Các hiệu ứng đường line ánh vàng phát sáng chuẩn Mẫu 185 Pro */
+/* Các đường viền ánh vàng metallic phát sáng của Theme 185 Pro */
 .gold-glow-line {
-    border-bottom: 1px solid rgba(212, 175, 55, 0.4);
+    border-bottom: 1px solid rgba(212, 175, 55, 0.45);
     box-shadow: 0 1px 12px rgba(212, 175, 55, 0.4);
 }
 .gold-glow-border {
-    border: 1px solid rgba(212, 175, 55, 0.45);
-    box-shadow: inset 0 0 20px rgba(212, 175, 55, 0.15), 0 0 25px rgba(212, 175, 55, 0.2);
+    border: 1px solid rgba(212, 175, 55, 0.5);
+    box-shadow: inset 0 0 20px rgba(212, 175, 55, 0.15), 0 0 25px rgba(212, 175, 55, 0.25);
 }
 .golden-arc-divider {
-    height: 1px;
+    height: 1.5px;
     background: linear-gradient(90deg, transparent 0%, #D4AF37 50%, transparent 100%);
-    box-shadow: 0 0 10px rgba(212, 175, 55, 0.6);
+    box-shadow: 0 0 12px rgba(212, 175, 55, 0.7);
+}
+.golden-vertical-divider {
+    width: 1px;
+    background: linear-gradient(180deg, transparent 0%, rgba(212, 175, 55, 0.6) 50%, transparent 100%);
+    box-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
 }
 
 .gold-border-box {
-    border: 1px solid rgba(212, 175, 55, 0.35);
+    border: 1px solid rgba(212, 175, 55, 0.4);
     box-shadow: inset 0 0 35px rgba(212, 175, 55, 0.08), 0 15px 50px rgba(0, 0, 0, 0.95);
 }
 
@@ -232,7 +240,7 @@ const colorThemes = [
         blindsColor: '#FACC15',
         headerColor: '#F8E5A1',
         statsColor: '#FFFFFF',
-        timerGlow: '0 0 35px rgba(255, 254, 233, 0.7), 0 0 70px rgba(212, 175, 55, 0.4)',
+        timerGlow: '0 0 35px rgba(255, 254, 233, 0.7), 0 0 70px rgba(212, 175, 55, 0.45)',
         isTheme185: true
     },
     {
@@ -299,7 +307,7 @@ const defaultBlinds = [
     { id: 1, type: 'level', sb: 100, bb: 100, ante: 100, length: 17 },
     { id: 2, type: 'level', sb: 100, bb: 200, ante: 200, length: 17 },
     { id: 3, type: 'level', sb: 200, bb: 400, ante: 400, length: 17 },
-    { id: 4, type: 'break', length: 10, title: '1st', isChipRace: true, chipRaceTitle: '100, 500' },
+    { id: 4, type: 'break', length: 10, title: '1st Break', isChipRace: true, chipRaceTitle: '100, 500' },
     { id: 5, type: 'level', sb: 300, bb: 600, ante: 600, length: 17 },
     { id: 6, type: 'level', sb: 400, bb: 800, ante: 800, length: 17 },
     { id: 7, type: 'level', sb: 500, bb: 1000, ante: 1000, length: 17 }
@@ -348,9 +356,11 @@ const defaultTourTemplate = (name, id, buyIn, rebuyPrice) => ({
         rebuyPrice: rebuyPrice || 130,
         regEndLevel: 12,
         logoSizePx: 80,
+        centralLogoSizePx: 64,
         qrSizePx: 70,
         bgImageUrl: '',
         logoUrl: '',
+        centralLogoUrl: '', // Logo đại bàng / custom trung tâm
         qrCodeUrl: '',
         selectedFont: 'font-montserrat',
         colorTheme: '185-snapcall-pro',
@@ -383,8 +393,8 @@ const defaultTourTemplate = (name, id, buyIn, rebuyPrice) => ({
         warning10s: 'Digital Beep'
     },
     gameStats: {
-        buyIns: 25,
-        eliminated: 1,
+        buyIns: 24,
+        eliminated: 0,
         rebuys: 17,
         currentStepIdx: 6,
         secondsLeft: 454,
@@ -528,18 +538,32 @@ function TournamentTVCard({ tour, openSinglePopout, isStandaloneTVMode }) {
     const themeStyle = getThemeStyles(tour.config.colorTheme);
     const selectedFontClass = tour.config.selectedFont || 'font-montserrat';
     const logoSize = tour.config.logoSizePx || 80;
+    const centralLogoSize = tour.config.centralLogoSizePx || 64;
     const qrSize = tour.config.qrSizePx || 70;
     const isTheme185 = themeStyle.isTheme185;
 
     return (
         <div
-            className={`w-full gold-border-box rounded-3xl bg-black/90 backdrop-blur-md p-4 sm:p-6 md:p-8 relative overflow-hidden shadow-2xl flex flex-col justify-between ${selectedFontClass} ${isStandaloneTVMode ? 'h-screen min-h-screen rounded-none border-none p-6 md:p-10' : 'min-h-[82vh] lg:min-h-[85vh]'} my-auto`}
+            className={`w-full gold-border-box rounded-3xl bg-black/90 backdrop-blur-md p-4 sm:p-6 md:p-8 relative overflow-hidden shadow-2xl flex flex-col justify-between ${selectedFontClass} ${isStandaloneTVMode ? 'h-screen w-screen min-h-screen min-w-full rounded-none border-none p-6 md:p-10 fixed inset-0 z-50' : 'min-h-[82vh] lg:min-h-[85vh]'} my-auto`}
             style={{
                 backgroundImage: tour.config.bgImageUrl ? `url(${tour.config.bgImageUrl})` : 'none',
                 backgroundSize: 'cover',
                 backgroundPosition: 'center'
             }}
         >
+            {/* ĐƯỜNG CURVE VÀNG GÓC NGHỆ THUẬT THEO MẪU 185 */}
+            {isTheme185 && (
+                <svg className="absolute top-0 right-0 w-96 h-96 pointer-events-none opacity-40 z-0" viewBox="0 0 100 100" preserveAspectRatio="none">
+                    <path d="M 0,0 Q 50,20 100,100 L 100,0 Z" fill="url(#goldGradient)" />
+                    <defs>
+                        <linearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stopColor="#D4AF37" stopOpacity="0.4" />
+                            <stop offset="100%" stopColor="transparent" stopOpacity="0" />
+                        </linearGradient>
+                    </defs>
+                </svg>
+            )}
+
             {openSinglePopout && !isStandaloneTVMode && (
                 <button
                     onClick={() => openSinglePopout(tour.id)}
@@ -556,16 +580,20 @@ function TournamentTVCard({ tour, openSinglePopout, isStandaloneTVMode }) {
                 </div>
             )}
 
-            <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 lg:gap-4 items-center flex-1 w-full my-auto">
-                {/* CỘT GIỮA: LOGO + TITLE + ĐỒNG HỒ (THUẬN MẮT THEO 185) */}
-                <div className="w-full lg:col-span-6 lg:order-2 text-center space-y-3 sm:space-y-4 my-auto px-1">
+            <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 lg:gap-4 items-center flex-1 w-full my-auto z-10">
+                {/* CỘT GIỮA: LOGO CENTRAL + TITLE + ĐỒNG HỒ CHUẨN 185 PRO */}
+                <div className="w-full lg:col-span-6 lg:order-2 text-center space-y-3 sm:space-y-4 my-auto px-1 relative">
                     <div className="text-center mb-1">
-                        {/* ICON ĐẠI BÀNG (CENTRAL LOGO SNAP CALL - TÙY CHỌN AN-HIEN) */}
+                        {/* ICON / LOGO ĐẠI BÀNG CENTRAL */}
                         {tour.config.showEagleLogo !== false && (
                             <div className="flex justify-center mb-2">
-                                <div className="w-14 h-14 rounded-full border border-gold/40 flex items-center justify-center bg-black/60 shadow-lg shadow-gold/10">
-                                    <i className="fa-solid fa-feather-pointed text-gold text-2xl drop-shadow-[0_0_8px_rgba(212,175,55,0.8)]"></i>
-                                </div>
+                                {tour.config.centralLogoUrl ? (
+                                    <img src={tour.config.centralLogoUrl} alt="Eagle Central" style={{ height: `${centralLogoSize}px` }} className="object-contain drop-shadow-[0_0_12px_rgba(212,175,55,0.8)]" />
+                                ) : (
+                                    <div className="w-14 h-14 rounded-full border border-gold/50 flex items-center justify-center bg-black/60 shadow-lg shadow-gold/20">
+                                        <i className="fa-solid fa-feather-pointed text-gold text-2xl drop-shadow-[0_0_10px_rgba(212,175,55,0.9)]"></i>
+                                    </div>
+                                )}
                             </div>
                         )}
 
@@ -638,7 +666,7 @@ function TournamentTVCard({ tour, openSinglePopout, isStandaloneTVMode }) {
                         </div>
                     )}
 
-                    {/* ĐƯỜNG KẺ UỐN CONG ÁNH VÀNG PHÂN CÁCH ĐÁY CỘT GIỮA (185 PRO) */}
+                    {/* ĐƯỜNG KẺ UỐN CONG ÁNH VÀNG ĐÁY CỘT GIỮA CHUẨN 185 */}
                     <div className="w-full max-w-md mx-auto golden-arc-divider my-3"></div>
 
                     <div className="text-gray-300 font-medium tracking-wide" style={{ fontSize: `${fontSizes.nextLevelPx || 46}px` }}>
@@ -646,7 +674,7 @@ function TournamentTVCard({ tour, openSinglePopout, isStandaloneTVMode }) {
                     </div>
                 </div>
 
-                {/* CỘT TRÁI: STATS (XÓA VIỀN Ô ĐEN NẾU CHỌN THEME 185) */}
+                {/* CỘT TRÁI: STATS (ĐƯỜNG PHÂN CÁCH NGHỆ THUẬT) */}
                 <div className={`w-full lg:col-span-3 lg:order-1 grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-col gap-3.5 text-left ${isTheme185 ? 'border-none' : 'border-t lg:border-t-0 lg:border-l border-gold/20 pt-4 lg:pt-0 lg:pl-4'}`}>
                     <div className={`${isTheme185 ? 'bg-transparent py-1' : 'bg-black/50 p-3 rounded-2xl border border-gray-800'}`}>
                         <div className="text-gray-400 font-bold tracking-wider uppercase mb-0.5" style={{ fontSize: `${Math.max(11, (fontSizes.statsPx || 30) - 14)}px` }}>PLAYERS</div>
@@ -679,12 +707,12 @@ function TournamentTVCard({ tour, openSinglePopout, isStandaloneTVMode }) {
                     </div>
                 </div>
 
-                {/* CỘT PHẢI: PRIZE POOL & PAYOUTS (BO KHUNG CONG ÁNH VÀNG CHUẨN 185) */}
+                {/* CỘT PHẢI: PRIZE POOL & PAYOUTS (KHUNG CONG VÀNG 185) */}
                 <div className={`w-full lg:col-span-3 lg:order-3 text-right flex flex-col justify-center h-full ${isTheme185 ? 'border-none' : 'border-t lg:border-t-0 border-gold/20 pt-4 lg:pt-0'} my-auto`}>
                     <div className={`w-full text-center lg:text-right my-auto ${isTheme185 ? 'bg-transparent p-2' : 'bg-black/50 p-4 rounded-2xl border border-gray-800'}`}>
                         <div className={`${isTheme185 ? 'gold-glow-border rounded-2xl p-3 mb-4 bg-black/40 text-center' : ''}`}>
                             <div className="text-gray-300 font-bold tracking-widest uppercase mb-1" style={{ fontSize: `${Math.max(11, (fontSizes.payoutsPx || 24) - 6)}px` }}>PRIZE POOL</div>
-                            <div className="font-black text-white tracking-tight text-shadow-gold" style={{ fontSize: `${(fontSizes.payoutsPx || 24) + 10}px` }}>
+                            <div className="font-black text-white tracking-tight" style={{ fontSize: `${(fontSizes.payoutsPx || 24) + 10}px` }}>
                                 {totalPointsFromPayouts.toLocaleString()} TOKEN
                             </div>
                         </div>
@@ -711,7 +739,7 @@ function TournamentTVCard({ tour, openSinglePopout, isStandaloneTVMode }) {
                 </div>
             </div>
 
-            <div className="mt-4 pt-3 border-t border-gray-900 flex flex-col sm:flex-row justify-between items-center text-[11px] text-gray-400 font-medium gap-1">
+            <div className="mt-4 pt-3 border-t border-gray-900 flex flex-col sm:flex-row justify-between items-center text-[11px] text-gray-400 font-medium gap-1 z-10">
                 <div>SNAP CALL • BOARD GAME & COFFEE • EST. 2026</div>
                 <div>Professional Poker Tournament System</div>
             </div>
@@ -726,7 +754,6 @@ function App() {
     const [activeView, setActiveView] = useState('combined-dashboard');
     const [wizardStep, setWizardStep] = useState(1);
     const [isCloudSynced, setIsCloudSynced] = useState(false);
-    const [isCloudLoaded, setIsCloudLoaded] = useState(false); // Cờ chặn ghi đè từ máy mới
     const [draggedBlindIdx, setDraggedBlindIdx] = useState(null);
     const [searchPhoneInput, setSearchPhoneInput] = useState('');
     const [searchResultPlayer, setSearchResultPlayer] = useState(null);
@@ -789,7 +816,6 @@ function App() {
         }
     }, [adminSetupTourId, activeAdminTour ? activeAdminTour.id : 0]);
 
-    // Tự động kiểm tra và gán Tour ID hợp lệ khi danh sách Tour từ Cloud cập nhật
     useEffect(() => {
         if (tournaments && tournaments.length > 0) {
             if (!tournaments.some(t => t.id === adminSetupTourId)) {
@@ -805,7 +831,6 @@ function App() {
         if (window.initCloudSync) {
             window.initCloudSync(
                 (cloudState) => {
-                    setIsCloudLoaded(true); // Đã kết nối & nạp Cloud thành công
                     if (cloudState && cloudState.tours && Array.isArray(cloudState.tours) && cloudState.tours.length > 0) {
                         setAppState(prevState => {
                             const cloudTime = cloudState.lastUpdated || 0;
@@ -822,13 +847,6 @@ function App() {
             );
         }
     }, []);
-
-    // Chỉ cho phép lưu lên Cloud khi đã nạp dữ liệu thành công (Ngăn máy mới ghi đè)
-    useEffect(() => {
-        if (isCloudLoaded && appState && appState.tours && appState.tours.length > 0 && window.saveAppStateToCloud) {
-            window.saveAppStateToCloud(appState);
-        }
-    }, [isCloudLoaded, appState]);
 
     useEffect(() => {
         const calcRemaining = () => {
@@ -870,11 +888,11 @@ function App() {
                 lastUpdated: Date.now()
             };
             if (window.saveAppStateToCloud) {
-                window.saveAppStateToCloud(nextState);
+                window.saveAppStateToCloud(nextState, true); // Ép lưu Cloud ngay lập tức
             }
             return nextState;
         });
-        alert(`Đã CẬP NHẬT thành công cài đặt cho Tour "${draftConfigState.config.name}"!`);
+        alert(`Đã CẬP NHẬT THÀNH CÔNG cài đặt cho Tour "${draftConfigState.config.name}"!`);
     };
 
     const handleLoginSubmit = (e) => {
@@ -1351,7 +1369,7 @@ function App() {
     };
 
     const addBlindLevelDraft = (type) => {
-        let newLevelObj = { id: Date.now(), type: 'break', length: 10, title: 'Break', isChipRace: true, chipRaceTitle: '100, 500' };
+        let newLevelObj = { id: Date.now(), type: 'break', length: 10, title: 'Break Time', isChipRace: true, chipRaceTitle: '100, 500' };
 
         if (type === 'level') {
             const lastLevel = [...draftConfigState.blinds].reverse().find(b => b.type === 'level');
@@ -1528,7 +1546,7 @@ function App() {
     if (isStandaloneTV) {
         const targetTour = tournaments.find(t => t.id === standaloneTourId) || activePublicTour;
         return (
-            <div className="w-full h-screen bg-black overflow-hidden flex flex-col justify-center items-center">
+            <div className="w-screen h-screen bg-black overflow-hidden flex flex-col justify-center items-center fixed inset-0">
                 <TournamentTVCard tour={targetTour} isStandaloneTVMode={true} />
             </div>
         );
@@ -2097,26 +2115,39 @@ function App() {
                                             </div>
                                         </div>
 
-                                        {/* CÔNG TẮC BẬT TẮT LOGO ĐẠI BÀNG CHÍNH GIỮA */}
-                                        <div className="bg-amber-950/40 p-4 rounded-2xl border border-amber-500/40 flex items-center justify-between">
+                                        {/* CÔNG TẮC BẬT TẮT VÀ UPLOAD LOGO CENTRAL */}
+                                        <div className="bg-amber-950/40 p-4 rounded-2xl border border-amber-500/40 flex flex-col md:flex-row items-center justify-between gap-4">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-full border border-gold/50 flex items-center justify-center bg-black">
-                                                    <i className="fa-solid fa-feather-pointed text-gold"></i>
+                                                <div className="w-12 h-12 rounded-full border border-gold/50 flex items-center justify-center bg-black overflow-hidden shrink-0">
+                                                    {draftConfigState.config.centralLogoUrl ? (
+                                                        <img src={draftConfigState.config.centralLogoUrl} alt="Central Logo" className="w-full h-full object-contain" />
+                                                    ) : (
+                                                        <i className="fa-solid fa-feather-pointed text-gold text-lg"></i>
+                                                    )}
                                                 </div>
                                                 <div>
                                                     <div className="text-amber-300 font-bold text-sm">Logo Đại Bàng Central (Mẫu 185 Pro)</div>
-                                                    <div className="text-xs text-gray-400">Hiển thị logo biểu tượng chính giữa phía trên tên giải đấu</div>
+                                                    <div className="text-xs text-gray-400">Tùy chọn Bật/Tắt và Thay đổi Logo biểu tượng chính giữa phía trên tên giải đấu</div>
                                                 </div>
                                             </div>
-                                            <label className="flex items-center gap-2 cursor-pointer bg-black/60 px-4 py-2 rounded-xl border border-gold/30">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={draftConfigState.config.showEagleLogo !== false}
-                                                    onChange={(e) => updateDraftConfig('showEagleLogo', e.target.checked)}
-                                                    className="rounded text-amber-500 focus:ring-0 w-4 h-4"
-                                                />
-                                                <span className="text-xs font-bold text-white">{draftConfigState.config.showEagleLogo !== false ? 'Đang BẬT' : 'Đang TẮT'}</span>
-                                            </label>
+
+                                            <div className="flex items-center gap-3 w-full md:w-auto">
+                                                <div className="flex-1 md:w-48">
+                                                    <input type="file" accept="image/*" onChange={(e) => handleFileUploadDraft(e, 'centralLogoUrl')} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-1.5 text-xs text-gray-300 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:bg-amber-500 file:text-black file:font-bold" />
+                                                </div>
+                                                {draftConfigState.config.centralLogoUrl && (
+                                                    <button onClick={() => updateDraftConfig('centralLogoUrl', '')} className="bg-red-600 hover:bg-red-500 text-white font-bold px-3 py-1.5 rounded-xl cursor-pointer text-xs" title="Xóa Logo Central Custom">✕ Reset</button>
+                                                )}
+                                                <label className="flex items-center gap-2 cursor-pointer bg-black/60 px-4 py-2 rounded-xl border border-gold/30 shrink-0">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={draftConfigState.config.showEagleLogo !== false}
+                                                        onChange={(e) => updateDraftConfig('showEagleLogo', e.target.checked)}
+                                                        className="rounded text-amber-500 focus:ring-0 w-4 h-4"
+                                                    />
+                                                    <span className="text-xs font-bold text-white">{draftConfigState.config.showEagleLogo !== false ? 'Hiện Logo' : 'Ẩn Logo'}</span>
+                                                </label>
+                                            </div>
                                         </div>
 
                                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-amber-950/30 p-5 rounded-2xl border border-amber-500/40">
@@ -2179,7 +2210,7 @@ function App() {
                                             </div>
                                             <div>
                                                 <label className="block text-gray-300 mb-1.5 font-semibold">Reg End Level</label>
-                                                <input type="number" value={draftConfigState.config.regEndLevel} onChange={(e) => updateDraftConfig('regEndLevel', Number(e.target.value))} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3.5 text-amber-400 font-bold text-base" />
+                                                <input type="number" value={draftConfigState.config.regEndLevel} onChange={(e) => updateDraftConfig('regEndLevel', Number(e.target.value))} className="w-full bg-gray-900 border border-amber-500/50 rounded-xl p-3.5 text-amber-400 font-bold text-base" />
                                             </div>
                                         </div>
                                     </div>
@@ -2229,18 +2260,18 @@ function App() {
                                                                 <div className="flex-1 flex flex-col space-y-2 bg-gray-900/80 p-3 rounded-xl border border-gray-800">
                                                                     <div className="flex items-center justify-between">
                                                                         <span className="font-bold text-cyan-400 text-xs sm:text-sm">☕ BREAK TIME</span>
-                                                                        <label className="flex items-center gap-2 cursor-pointer">
+                                                                        <label className="flex items-center gap-2 cursor-pointer bg-black/40 px-3 py-1 rounded-lg border border-amber-500/30">
                                                                             <input type="checkbox" checked={!!b.isChipRace} onChange={(e)=> updateBlindFieldDraft(b.id, 'isChipRace', e.target.checked)} className="rounded text-amber-500 focus:ring-0 w-4 h-4" />
-                                                                            <span className="text-xs text-amber-300 font-bold">Chip race</span>
+                                                                            <span className="text-xs text-amber-300 font-bold">Bật Chip Race</span>
                                                                         </label>
                                                                     </div>
                                                                     <div className="flex items-center gap-3">
                                                                         <div className="flex-1">
-                                                                            <span className="text-[10px] text-gray-400 block mb-0.5">Break title</span>
-                                                                            <input type="text" value={b.title || ''} placeholder="vd: 1st" onChange={(e)=> updateBlindFieldDraft(b.id, 'title', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-white text-xs sm:text-sm"/>
+                                                                            <span className="text-[10px] text-gray-400 block mb-0.5">Break Title</span>
+                                                                            <input type="text" value={b.title || ''} placeholder="vd: 1st Break" onChange={(e)=> updateBlindFieldDraft(b.id, 'title', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-white text-xs sm:text-sm font-semibold"/>
                                                                         </div>
                                                                         <div className="flex-1">
-                                                                            <span className="text-[10px] text-amber-300 font-bold block mb-0.5">Chip race (Mệnh Giá)</span>
+                                                                            <span className="text-[10px] text-amber-300 font-bold block mb-0.5">Chip Race (Mệnh Giá Chip)</span>
                                                                             <input type="text" value={b.chipRaceTitle || ''} placeholder="vd: 100, 500" onChange={(e)=> updateBlindFieldDraft(b.id, 'chipRaceTitle', e.target.value)} className="w-full bg-gray-900 border border-amber-500/50 rounded-xl px-3 py-2 text-amber-300 font-bold text-xs sm:text-sm"/>
                                                                         </div>
                                                                         <div>
@@ -2283,7 +2314,7 @@ function App() {
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                             <div>
                                                 <label className="block text-gray-300 mb-2 font-semibold">Tùy Chọn Màu Chữ TV (Color Theme)</label>
-                                                <select value={draftConfigState.config.colorTheme || 'tnt-gold'} onChange={(e) => updateDraftConfig('colorTheme', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3.5 text-amber-300 font-bold text-base">
+                                                <select value={draftConfigState.config.colorTheme || '185-snapcall-pro'} onChange={(e) => updateDraftConfig('colorTheme', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3.5 text-amber-300 font-bold text-base">
                                                     {colorThemes.map(theme => (
                                                         <option key={theme.id} value={theme.id}>{theme.label}</option>
                                                     ))}
@@ -2301,7 +2332,7 @@ function App() {
 
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-black/40 p-4 rounded-2xl border border-gray-800">
                                             <div>
-                                                <label className="block text-amber-300 mb-2 font-bold">Logo CLB Upload</label>
+                                                <label className="block text-amber-300 mb-2 font-bold">Logo CLB (Góc Trái)</label>
                                                 <div className="flex gap-2.5">
                                                     <input type="file" accept="image/*" onChange={(e) => handleFileUploadDraft(e, 'logoUrl')} className="flex-1 bg-gray-900 border border-gray-700 rounded-xl p-1.5 text-xs text-gray-300 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-amber-500 file:text-black file:font-bold" />
                                                     {draftConfigState.config.logoUrl && (
