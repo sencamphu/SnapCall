@@ -48,7 +48,7 @@ console.warn("Fetch Error:", e);
 };
 ​await fetchData();
 ​const channel = supabaseClient
-.channel('room_poker_live_v10', { config: { broadcast: { self: true } } })
+.channel('room_poker_live_v11', { config: { broadcast: { self: true } } })
 .on('postgres_changes', { event: '*', schema: 'public', table: 'tournaments' }, payload => {
 if (payload.new && payload.new.data) {
 onDataReceived(payload.new.data, true);
@@ -610,8 +610,7 @@ const [targetProtectedView, setTargetProtectedView] = useState('admin');
 const [idInput, setIdInput] = useState('');
 const [pinInput, setPinInput] = useState('');
 const [loginError, setLoginError] = useState('');
-​// SSOT INITIAL STATE: CHỈ MỘT NGUỒN DUY NHẤT, KHÔNG HỆ GỐP LOCALSTORAGE TRÁI PHÉP
-const [appState, setAppState] = useState(() => {
+​const [appState, setAppState] = useState(() => {
 return {
 tours: [
 defaultTourTemplate('MONTER STACK', 101, 100, 100)
@@ -633,14 +632,12 @@ const activePublicTour = tournaments.find(t => t.id === currentPublicDisplayId) 
 ​useEffect(() => {
 setDraftConfigState(JSON.parse(JSON.stringify(activeAdminTour)));
 }, [adminSetupTourId, masterSelectedTourId]);
-​// KẾT NỐI CLOUD VÀ THỰC THI SSOT REPLACEMENT (XÓA BỎ HOÀN TOÀN MERGE LỆCH LẠC)
-useEffect(() => {
+​useEffect(() => {
 if (window.initCloudSync) {
 window.initCloudSync(
 (cloudState, isFromRemote) => {
 if (cloudState && cloudState.tours && Array.isArray(cloudState.tours) && cloudState.tours.length > 0) {
 setAppState(prev => {
-// SSOT: CLOUD LÀ DUY NHẤT. BẤT KỲ DỮ LIỆU NÀO TỪ CLOUD ĐỀU THAY THẾ TOÀN BỘ LOCAL STATE TRỰC TIẾP
 return {
 tours: cloudState.tours,
 presets: cloudState.presets || [],
