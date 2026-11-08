@@ -17,7 +17,7 @@
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cinzel:wght@700;900&family=Impact&family=Montserrat:wght@500;600;700;800;900&family=Oswald:wght@700&family=Roboto+Mono:wght@700&family=Teko:wght@700&family=Playfair+Display:wght@700;900&family=Rajdhani:wght@700&family=Orbitron:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cinzel:wght@700;900&family=Impact&family=Montserrat:wght@500;600;700;800;900&family=Oswald:wght@700&family=Playfair+Display:wght@700;900&family=Rajdhani:wght@600;700&family=Orbitron:wght@700;900&family=Roboto+Mono:wght@700&family=Teko:wght@700&display=swap" rel="stylesheet">
     
     <!-- Supabase SDK Realtime Integration -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -25,93 +25,80 @@
         const SUPABASE_URL = "https://mkizhwumwxfqlwwfoief.supabase.co";
         const SUPABASE_ANON_KEY = "sb_publishable_XL_p7DDfizVqdz_mETXztw_7MecHfiQ";
 
-        window.popoutBroadcastChannel = new BroadcastChannel('snapcall_popout_sync');
+        window.popoutBroadcastChannel = new BroadcastChannel('snapcall_poker_channel_v16');
 
-        const getTodayDateString = () => {
-            const today = new Date();
-            const yyyy = today.getFullYear();
-            const mm = String(today.getMonth() + 1).padStart(2, '0');
-            const dd = String(today.getDate()).padStart(2, '0');
-            return `${yyyy}-${mm}-${dd}`;
-        };
-
-        window.defaultBlinds = [
-            { id: 1, type: 'level', sb: 100, bb: 100, ante: 100, length: 17 },
-            { id: 2, type: 'level', sb: 100, bb: 200, ante: 200, length: 17 },
-            { id: 3, type: 'level', sb: 200, bb: 400, ante: 400, length: 17 },
-            { id: 4, type: 'break', length: 10, title: '1st', isChipRace: true, chipRaceTitle: '100, 500' },
-            { id: 5, type: 'level', sb: 300, bb: 600, ante: 600, length: 17 },
-            { id: 6, type: 'level', sb: 400, bb: 800, ante: 800, length: 17 },
-            { id: 7, type: 'level', sb: 500, bb: 1000, ante: 1000, length: 17 }
-        ];
-
-        window.defaultTourTemplate = (name, id, buyIn, rebuyPrice) => ({
-            id: id || 101,
-            config: {
-                showClubName: true,
-                showSubTitle: true,
-                clubName: 'SNAP CALL',
-                subTitle: 'BOARD GAME & COFFEE',
-                name: name || 'MONTER STACK',
-                scheduledStartDate: getTodayDateString(),
-                scheduledStartTime: '13:00',
-                enableScheduledTimer: true,
-                maxLeaderboardTop: 10,
-                buyIn: buyIn || 100,
-                currency: 'TOKEN',
-                fee: 0,
-                startingStack: 25000,
-                maxPlayersPerTable: 10,
-                allowRebuys: true,
-                rebuyPrice: rebuyPrice || 100,
-                regEndLevel: 11,
-                logoSizePx: 80,
-                qrSizePx: 70,
-                bgImageUrl: '',
-                logoUrl: '',
-                qrCodeUrl: '',
-                selectedFont: 'font-montserrat',
-                colorTheme: 'tnt-gold',
-                fontCustomSizes: {
-                    brandPx: 30,
-                    headerPx: 56,
-                    subHeaderPx: 18,
-                    timerPx: 120,
-                    blindsPx: 54,
-                    nextLevelPx: 46,
-                    statsPx: 30,
-                    payoutsPx: 24,
-                    levelBadgePx: 22,
-                    tourInfoPx: 18
+        window.defaultTourTemplate = function(name, id, buyIn, rebuyPrice) {
+            return {
+                id: id || 101,
+                config: {
+                    showClubName: true,
+                    showSubTitle: true,
+                    clubName: 'SNAP CALL',
+                    subTitle: 'BOARD GAME & COFFEE',
+                    name: name || 'MONTER STACK',
+                    scheduledStartDate: new Date().toISOString().split('T')[0],
+                    scheduledStartTime: '13:00',
+                    enableScheduledTimer: true,
+                    maxLeaderboardTop: 10,
+                    buyIn: buyIn || 100,
+                    currency: 'TOKEN',
+                    fee: 0,
+                    startingStack: 25000,
+                    maxPlayersPerTable: 10,
+                    allowRebuys: true,
+                    rebuyPrice: rebuyPrice || 100,
+                    regEndLevel: 11,
+                    logoSizePx: 80,
+                    qrSizePx: 70,
+                    bgImageUrl: '',
+                    logoUrl: '',
+                    qrCodeUrl: '',
+                    selectedFont: 'font-montserrat',
+                    colorTheme: 'tnt-gold',
+                    fontCustomSizes: {
+                        brandPx: 30,
+                        headerPx: 56,
+                        subHeaderPx: 18,
+                        timerPx: 120,
+                        blindsPx: 54,
+                        nextLevelPx: 46,
+                        statsPx: 30,
+                        payoutsPx: 24,
+                        levelBadgePx: 22,
+                        infoRowPx: 16
+                    }
+                },
+                blinds: [
+                    { id: 1, type: 'level', sb: 100, bb: 100, ante: 100, length: 17 },
+                    { id: 2, type: 'level', sb: 100, bb: 200, ante: 200, length: 17 },
+                    { id: 3, type: 'level', sb: 200, bb: 400, ante: 400, length: 17 },
+                    { id: 4, type: 'break', length: 10, title: '1st', isChipRace: true, chipRaceTitle: '100, 500' },
+                    { id: 5, type: 'level', sb: 300, bb: 600, ante: 600, length: 17 }
+                ],
+                payoutMode: 'fixed',
+                payouts: [
+                    { place: 'Top 1', value: 10 },
+                    { place: 'Top 2', value: 6.5 },
+                    { place: 'Top 3', value: 4.5 }
+                ],
+                soundsConfig: {
+                    nextLevel: 'Boxing Bell',
+                    breakStart: 'Whistle',
+                    breakEnd: 'Chime Bell',
+                    warning10s: 'Digital Beep'
+                },
+                gameStats: {
+                    buyIns: 9,
+                    eliminated: 4,
+                    rebuys: 5,
+                    currentStepIdx: 1,
+                    secondsLeft: 611,
+                    targetEndTime: Date.now() + 611000,
+                    isPaused: true,
+                    isFinished: false
                 }
-            },
-            blinds: JSON.parse(JSON.stringify(window.defaultBlinds)),
-            payoutMode: 'fixed',
-            payouts: [
-                { place: 'Top 1', value: 10 },
-                { place: 'Top 2', value: 6.5 },
-                { place: 'Top 3', value: 4.5 },
-                { place: 'Top 4', value: 3 },
-                { place: 'Top 5', value: 2 },
-                { place: 'Top 6', value: 1 }
-            ],
-            soundsConfig: {
-                nextLevel: 'Boxing Bell',
-                breakStart: 'Whistle',
-                breakEnd: 'Chime Bell',
-                warning10s: 'Digital Beep'
-            },
-            gameStats: {
-                buyIns: 9,
-                eliminated: 4,
-                rebuys: 5,
-                currentStepIdx: 1,
-                secondsLeft: 611,
-                targetEndTime: Date.now() + (611 * 1000),
-                isPaused: false,
-                isFinished: false
-            }
-        });
+            };
+        };
 
         window.initCloudSync = async function(onDataReceived, onSyncStatusChange) {
             if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !window.supabase) {
@@ -132,15 +119,12 @@
                             .eq('id', 'live_state')
                             .maybeSingle();
 
-                        if (data && data.data && data.data.tours && data.data.tours.length > 0) {
+                        if (data && data.data && data.data.tours && Array.isArray(data.data.tours) && data.data.tours.length > 0) {
                             onDataReceived(data.data, true);
                         } else {
-                            // Seed default 3 professional tours if cloud is empty
                             const initialDefaultState = {
                                 tours: [
-                                    window.defaultTourTemplate('MONTER STACK', 101, 100, 100),
-                                    window.defaultTourTemplate('HIGH ROLLER', 102, 500, 500),
-                                    window.defaultTourTemplate('SNAP HYPER', 103, 50, 50)
+                                    window.defaultTourTemplate('MONTER STACK', 101, 100, 100)
                                 ],
                                 presets: [],
                                 selectedTourId: 101,
@@ -157,7 +141,7 @@
                 await fetchCloudData();
 
                 const channel = supabaseClient
-                    .channel('room_poker_live_v15', { config: { broadcast: { self: true } } })
+                    .channel('room_poker_live_v16', { config: { broadcast: { self: true } } })
                     .on('postgres_changes', { event: '*', schema: 'public', table: 'tournaments' }, payload => {
                         if (payload.new && payload.new.data) {
                             onDataReceived(payload.new.data, true);
@@ -170,13 +154,8 @@
                     })
                     .subscribe();
 
-                setInterval(fetchCloudData, 2000);
-
                 window.saveTournamentsToCloud = async (appDataState) => {
-                    const isAdmin = localStorage.getItem('snapcall_admin_auth') === 'true';
                     window.popoutBroadcastChannel.postMessage({ data: appDataState });
-
-                    if (!isAdmin) return;
 
                     try {
                         const payloadData = {
@@ -198,7 +177,7 @@
                     }
                 };
             } catch (err) {
-                console.warn("Lỗi kết nối Supabase Cloud Sync:", err);
+                console.warn("Lỗi kết nối Supabase:", err);
                 onSyncStatusChange(false);
             }
         };
@@ -226,7 +205,7 @@
             min-height: 100vh;
             margin: 0;
             padding: 0;
-            background-color: #050507;
+            background-color: #070709;
             color: #f3f4f6;
             font-family: 'Montserrat', sans-serif;
             overflow-x: hidden;
@@ -246,13 +225,13 @@
 
         .poker-bg {
             background: 
-                radial-gradient(circle at center, rgba(30, 20, 10, 0.9) 0%, rgba(5, 5, 7, 0.98) 85%),
+                radial-gradient(circle at center, rgba(35, 24, 12, 0.88) 0%, rgba(8, 8, 10, 0.98) 85%),
                 url('https://images.unsplash.com/photo-1511193311914-0346f16efe90?auto=format&fit=crop&w=1920&q=80') center/cover no-repeat;
         }
 
         .gold-border-box {
-            border: 1px solid rgba(212, 175, 55, 0.35);
-            box-shadow: inset 0 0 35px rgba(212, 175, 55, 0.08), 0 15px 50px rgba(0, 0, 0, 0.95);
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            box-shadow: inset 0 0 30px rgba(212, 175, 55, 0.05), 0 10px 40px rgba(0, 0, 0, 0.9);
         }
 
         ::-webkit-scrollbar {
@@ -276,29 +255,29 @@
         }
     </style>
 </head>
-<body class="min-h-screen bg-[#050507] poker-bg">
+<body class="min-h-screen bg-[#070709] poker-bg">
     <div id="root"></div>
 
     <script type="text/babel">
 const { useState, useEffect, useRef } = React;
 
 const fontOptions = [
-    { label: 'Mẫu 1: Montserrat Pro', value: 'font-montserrat' },
-    { label: 'Mẫu 2: Impact Arena', value: 'font-impact' },
-    { label: 'Mẫu 3: Cinzel Royal', value: 'font-cinzel' },
-    { label: 'Mẫu 4: Oswald Bold', value: 'font-oswald' },
-    { label: 'Mẫu 5: Bebas Neue', value: 'font-bebas' },
-    { label: 'Mẫu 6: Roboto Mono', value: 'font-roboto-mono' },
-    { label: 'Mẫu 7: Teko Massive', value: 'font-teko' },
-    { label: 'Mẫu 8: Playfair Luxury', value: 'font-playfair' },
-    { label: 'Mẫu 9: Rajdhani Cyber', value: 'font-rajdhani' },
-    { label: 'Mẫu 10: Orbitron Sci-Fi', value: 'font-orbitron' }
+    { label: 'Montserrat Pro', value: 'font-montserrat' },
+    { label: 'Impact Arena', value: 'font-impact' },
+    { label: 'Cinzel Royal', value: 'font-cinzel' },
+    { label: 'Oswald', value: 'font-oswald' },
+    { label: 'Bebas Neue', value: 'font-bebas' },
+    { label: 'Roboto Mono', value: 'font-roboto-mono' },
+    { label: 'Teko Pro', value: 'font-teko' },
+    { label: 'Playfair Display', value: 'font-playfair' },
+    { label: 'Rajdhani Cyber', value: 'font-rajdhani' },
+    { label: 'Orbitron Sci-Fi', value: 'font-orbitron' }
 ];
 
 const colorThemes = [
     { 
         id: 'tnt-gold', 
-        label: 'Mẫu 1: Royal Gold & Ivory', 
+        label: 'Royal Gold', 
         timerColor: '#FFFEE9', 
         blindsColor: '#FACC15', 
         headerColor: '#F8E5A1',
@@ -307,7 +286,7 @@ const colorThemes = [
     },
     { 
         id: 'high-contrast', 
-        label: 'Mẫu 2: Diamond Pure White', 
+        label: 'Diamond White', 
         timerColor: '#FFFFFF', 
         blindsColor: '#FFFFFF', 
         headerColor: '#FACC15',
@@ -316,7 +295,7 @@ const colorThemes = [
     },
     { 
         id: 'royal-yellow', 
-        label: 'Mẫu 3: Amber Sun Gold', 
+        label: 'Amber Sun', 
         timerColor: '#FACC15', 
         blindsColor: '#FACC15', 
         headerColor: '#FFFFFF',
@@ -325,30 +304,12 @@ const colorThemes = [
     },
     { 
         id: 'cyber-neon', 
-        label: 'Mẫu 4: Cyber Neon Blue', 
+        label: 'Cyber Neon', 
         timerColor: '#38BDF8', 
         blindsColor: '#4ADE80', 
         headerColor: '#FACC15',
         statsColor: '#38BDF8',
         timerGlow: '0 0 35px rgba(56, 189, 248, 0.6)'
-    },
-    { 
-        id: 'emerald-luxury', 
-        label: 'Mẫu 5: Emerald Casino', 
-        timerColor: '#34D399', 
-        blindsColor: '#34D399', 
-        headerColor: '#FACC15',
-        statsColor: '#6EE7B7',
-        timerGlow: '0 0 35px rgba(52, 211, 153, 0.6)'
-    },
-    { 
-        id: 'ruby-velvet', 
-        label: 'Mẫu 6: Ruby Velvet Red', 
-        timerColor: '#F87171', 
-        blindsColor: '#FCA5A5', 
-        headerColor: '#FACC15',
-        statsColor: '#FEE2E2',
-        timerGlow: '0 0 35px rgba(248, 113, 113, 0.6)'
     }
 ];
 
@@ -361,103 +322,19 @@ const mockLeaderboardData = [
     { rank: 2, name: 'Trần Thị B', phoneLast4: '5678', monthElo: 1120, quarterElo: 2980 },
     { rank: 3, name: 'Lê Minh C', phoneLast4: '9012', monthElo: 980, quarterElo: 2650 },
     { rank: 4, name: 'Phạm Hoàng D', phoneLast4: '3456', monthElo: 890, quarterElo: 2400 },
-    { rank: 5, name: 'Đỗ Tuấn E', phoneLast4: '7890', monthElo: 820, quarterElo: 2150 },
-    { rank: 6, name: 'Vũ Quốc F', phoneLast4: '2345', monthElo: 750, quarterElo: 1980 },
-    { rank: 7, name: 'Hoàng Văn G', phoneLast4: '6789', monthElo: 680, quarterElo: 1820 },
-    { rank: 8, name: 'Đặng Minh H', phoneLast4: '0123', monthElo: 610, quarterElo: 1690 },
-    { rank: 9, name: 'Bùi Anh I', phoneLast4: '4567', monthElo: 550, quarterElo: 1540 },
-    { rank: 10, name: 'Nghêm Việt K', phoneLast4: '8901', monthElo: 490, quarterElo: 1410 }
+    { rank: 5, name: 'Đỗ Tuấn E', phoneLast4: '7890', monthElo: 820, quarterElo: 2150 }
 ];
 
-const playSoundEffect = (soundType) => {
-    try {
-        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContextClass) return;
-        const ctx = new AudioContextClass();
-        if (ctx.state === 'suspended') ctx.resume();
-
-        if (soundType === 'Boxing Bell' || soundType === 'Chuông Đấu Kê') {
-            [0, 180].forEach(delay => {
-                setTimeout(() => {
-                    const osc = ctx.createOscillator();
-                    const gain = ctx.createGain();
-                    osc.type = 'sine';
-                    osc.frequency.setValueAtTime(1320, ctx.currentTime);
-                    gain.gain.setValueAtTime(0.6, ctx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.9);
-                    osc.connect(gain);
-                    gain.connect(ctx.destination);
-                    osc.start();
-                    osc.stop(ctx.currentTime + 0.9);
-                }, delay);
-            });
-        } else if (soundType === 'Chime Bell' || soundType === 'Chuông Ngân Vang') {
-            [523.25, 659.25, 783.99, 1046.50].forEach((freq, index) => {
-                setTimeout(() => {
-                    const osc = ctx.createOscillator();
-                    const gain = ctx.createGain();
-                    osc.type = 'triangle';
-                    osc.frequency.setValueAtTime(freq, ctx.currentTime);
-                    gain.gain.setValueAtTime(0.4, ctx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.4);
-                    osc.connect(gain);
-                    gain.connect(ctx.destination);
-                    osc.start();
-                    osc.stop(ctx.currentTime + 1.4);
-                }, index * 120);
-            });
-        } else if (soundType === 'Digital Beep' || soundType === 'Bíp Điện Tử') {
-            [0, 150, 300].forEach(delay => {
-                setTimeout(() => {
-                    const osc = ctx.createOscillator();
-                    const gain = ctx.createGain();
-                    osc.type = 'square';
-                    osc.frequency.setValueAtTime(1760, ctx.currentTime);
-                    gain.gain.setValueAtTime(0.25, ctx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
-                    osc.connect(gain);
-                    gain.connect(ctx.destination);
-                    osc.start();
-                    osc.stop(ctx.currentTime + 0.15);
-                }, delay);
-            });
-        } else if (soundType === 'Whistle' || soundType === 'Còi Trọng Tài') {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(2500, ctx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(3100, ctx.currentTime + 0.25);
-            osc.frequency.exponentialRampToValueAtTime(2500, ctx.currentTime + 0.5);
-            gain.gain.setValueAtTime(0.45, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.6);
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.start();
-            osc.stop(ctx.currentTime + 0.6);
-        }
-    } catch (e) {
-        console.log("Audio play error:", e);
-    }
+const getTodayDateString = () => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
 };
 
 function TournamentTVCard({ tour, openSinglePopout, isPopoutWindow }) {
-    const [localSecondsLeft, setLocalSecondsLeft] = useState(tour.gameStats.secondsLeft);
-
-    // Independent Popout Timer to prevent freezing
-    useEffect(() => {
-        if (!isPopoutWindow) return;
-        const interval = setInterval(() => {
-            if (tour.gameStats.isPaused || tour.gameStats.isFinished || !tour.gameStats.targetEndTime) {
-                setLocalSecondsLeft(tour.gameStats.secondsLeft);
-                return;
-            }
-            const rem = Math.max(0, Math.ceil((tour.gameStats.targetEndTime - Date.now()) / 1000));
-            setLocalSecondsLeft(rem);
-        }, 100);
-        return () => clearInterval(interval);
-    }, [isPopoutWindow, tour.gameStats.targetEndTime, tour.gameStats.isPaused, tour.gameStats.isFinished, tour.gameStats.secondsLeft]);
-
-    const activeSeconds = isPopoutWindow ? localSecondsLeft : tour.gameStats.secondsLeft;
+    if (!tour) return <div className="text-white text-center p-10">Đang tải thông tin Tour...</div>;
     const currentStep = tour.blinds[tour.gameStats.currentStepIdx] || tour.blinds[0];
 
     const getCalculatedLevelNumber = (blindsList, stepIndex) => {
@@ -469,7 +346,7 @@ function TournamentTVCard({ tour, openSinglePopout, isPopoutWindow }) {
     };
 
     const getSecondsToNextBreak = (t) => {
-        let totalSecs = activeSeconds;
+        let totalSecs = t.gameStats.secondsLeft;
         for (let i = t.gameStats.currentStepIdx + 1; i < t.blinds.length; i++) {
             if (t.blinds[i].type === 'break') break;
             totalSecs += t.blinds[i].length * 60;
@@ -509,7 +386,7 @@ function TournamentTVCard({ tour, openSinglePopout, isPopoutWindow }) {
     const avgStack = playersLeft > 0 ? Math.round(totalChipsInPlay / playersLeft) : 0;
     const nextBreakTime = formatTimeHHMMSS(getSecondsToNextBreak(tour));
     
-    const fontSizes = tour.config.fontCustomSizes || { brandPx: 30, headerPx: 56, subHeaderPx: 18, timerPx: 120, blindsPx: 54, nextLevelPx: 46, statsPx: 30, payoutsPx: 24, levelBadgePx: 22, tourInfoPx: 18 };
+    const fontSizes = tour.config.fontCustomSizes || { brandPx: 30, headerPx: 56, subHeaderPx: 18, timerPx: 120, blindsPx: 54, nextLevelPx: 46, statsPx: 30, payoutsPx: 24, levelBadgePx: 22, infoRowPx: 16 };
     const themeStyle = getThemeStyles(tour.config.colorTheme);
     const selectedFontClass = tour.config.selectedFont || 'font-montserrat';
     const logoSize = tour.config.logoSizePx || 80;
@@ -517,7 +394,7 @@ function TournamentTVCard({ tour, openSinglePopout, isPopoutWindow }) {
 
     return (
         <div 
-            className={`w-full gold-border-box rounded-3xl bg-black/85 backdrop-blur-md p-4 sm:p-6 md:p-8 relative overflow-hidden shadow-2xl flex flex-col justify-between ${selectedFontClass} ${isPopoutWindow ? 'h-full min-h-screen' : 'min-h-[82vh] lg:min-h-[85vh]'} my-auto`}
+            className={`w-full gold-border-box rounded-3xl bg-black/85 backdrop-blur-md p-4 sm:p-5 md:p-6 relative overflow-hidden shadow-2xl flex flex-col justify-between ${selectedFontClass} ${isPopoutWindow ? 'h-full min-h-screen' : 'min-h-[80vh]'} my-auto`}
             style={{
                 backgroundImage: tour.config.bgImageUrl ? `url(${tour.config.bgImageUrl})` : 'none',
                 backgroundSize: 'cover',
@@ -527,7 +404,7 @@ function TournamentTVCard({ tour, openSinglePopout, isPopoutWindow }) {
             {openSinglePopout && (
                 <button 
                     onClick={() => openSinglePopout(tour.id)}
-                    className="absolute top-3 right-3 z-30 bg-sky-700/80 hover:bg-sky-600 text-white font-bold px-3 py-1.5 rounded-xl border border-sky-400/50 text-xs shadow transition flex items-center gap-1.5 cursor-pointer"
+                    className="absolute top-3 right-3 z-30 bg-sky-700/80 hover:bg-sky-600 text-white font-bold px-2.5 py-1 rounded-lg border border-sky-400/50 text-xs shadow transition flex items-center gap-1 cursor-pointer"
                     title="Mở riêng giải đấu này ra cửa sổ TV mới"
                 >
                     <i className="fa-solid fa-up-right-from-square"></i> Popout TV
@@ -540,29 +417,29 @@ function TournamentTVCard({ tour, openSinglePopout, isPopoutWindow }) {
                 </div>
             )}
 
-            <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 lg:gap-4 items-center flex-1 w-full my-auto">
-                <div className="w-full lg:col-span-6 lg:order-2 text-center space-y-3 sm:space-y-4 my-auto px-1">
+            <div className="flex flex-col md:grid md:grid-cols-12 gap-4 md:gap-2 items-center flex-1 w-full my-auto">
+                <div className="w-full md:col-span-6 md:order-2 text-center space-y-1.5 sm:space-y-2 my-auto px-1">
                     <div className="text-center mb-1">
                         {(tour.config.showClubName !== false || tour.config.showSubTitle !== false) && (
-                            <div className="flex flex-col items-center mb-1.5">
+                            <div className="flex flex-col items-center mb-1">
                                 {tour.config.showClubName !== false && (
                                     <div className="text-gold font-extrabold tracking-[0.2em] font-cinzel text-center" style={{ fontSize: `${fontSizes.brandPx || 30}px` }}>
                                         {tour.config.clubName}
                                     </div>
                                 )}
                                 {tour.config.showSubTitle !== false && (
-                                    <div className="text-[10px] sm:text-xs text-gold/80 tracking-[0.25em] font-semibold uppercase border-t border-b border-gold/30 px-3 py-0.5 mt-1" style={{ fontSize: `${fontSizes.subHeaderPx || 18}px` }}>
+                                    <div className="text-[9px] text-gold/70 tracking-[0.25em] font-semibold uppercase border-t border-b border-gold/30 px-2 py-0.5 mt-0.5">
                                         — {tour.config.subTitle || 'BOARD GAME & COFFEE'} —
                                     </div>
                                 )}
                             </div>
                         )}
 
-                        <div className="font-black uppercase tracking-wider mb-2 font-cinzel text-center leading-tight" style={{ fontSize: `${fontSizes.headerPx || 56}px`, color: themeStyle.headerColor }}>
+                        <div className="font-black uppercase tracking-wider mb-1 font-cinzel text-center leading-tight" style={{ fontSize: `${fontSizes.headerPx || 56}px`, color: themeStyle.headerColor }}>
                             {tour.config.name}
                         </div>
                         
-                        <div className="flex flex-wrap justify-center items-center gap-x-3 sm:gap-x-6 text-gray-200 font-medium tracking-wide bg-black/40 py-1.5 px-3 rounded-xl border border-gold/20 max-w-xl mx-auto" style={{ fontSize: `${fontSizes.tourInfoPx || 18}px` }}>
+                        <div className="flex flex-wrap justify-center items-center gap-x-2 sm:gap-x-4 text-gray-200 font-medium tracking-wide" style={{ fontSize: `${fontSizes.infoRowPx || 16}px` }}>
                             <div>Buyin: <span className="text-white font-bold">{tour.config.buyIn}</span></div>
                             <div>Rebuy: <span className="text-white font-bold">{tour.config.rebuyPrice}</span></div>
                             <div>Stack: <span className="text-white font-bold">{tour.config.startingStack.toLocaleString()}</span></div>
@@ -570,8 +447,8 @@ function TournamentTVCard({ tour, openSinglePopout, isPopoutWindow }) {
                         </div>
                     </div>
 
-                    <div className="inline-block border border-gold/40 rounded-2xl px-5 py-1 bg-black/60 shadow-lg">
-                        <span className="font-bold text-gray-100 tracking-widest uppercase block text-center" style={{ fontSize: `${fontSizes.levelBadgePx || 22}px` }}>
+                    <div className="inline-block border border-gold/40 rounded-xl px-3 sm:px-5 py-0.5 bg-black/50 max-w-full">
+                        <span className="font-bold text-gray-200 tracking-widest uppercase block text-center" style={{ fontSize: `${fontSizes.levelBadgePx || 22}px` }}>
                             {tour.gameStats.isFinished 
                                 ? '🏆 TOUR FINISHED' 
                                 : (currentStep.type === 'break' 
@@ -580,7 +457,7 @@ function TournamentTVCard({ tour, openSinglePopout, isPopoutWindow }) {
                         </span>
                     </div>
 
-                    <div className="py-2 flex justify-center items-center">
+                    <div className="py-1 flex justify-center items-center">
                         {tour.gameStats.isFinished ? (
                             <div className="font-timer font-black tracking-wider leading-none text-emerald-400 drop-shadow-lg" style={{ fontSize: `${fontSizes.timerPx || 120}px` }}>
                                 FINISHED
@@ -591,7 +468,7 @@ function TournamentTVCard({ tour, openSinglePopout, isPopoutWindow }) {
                             </div>
                         ) : (
                             <div className="font-timer font-black tracking-wider leading-none" style={{ fontSize: `${fontSizes.timerPx || 120}px`, color: themeStyle.timerColor, textShadow: themeStyle.timerGlow }}>
-                                {formatTime(activeSeconds)}
+                                {formatTime(tour.gameStats.secondsLeft)}
                             </div>
                         )}
                     </div>
@@ -604,54 +481,54 @@ function TournamentTVCard({ tour, openSinglePopout, isPopoutWindow }) {
                         {tour.gameStats.isFinished ? 'HẸN GẶP LẠI Ở GIẢI ĐẤU TIẾP THEO' : (currentStep.type === 'break' ? (currentStep.isChipRace && currentStep.chipRaceTitle ? `RACE CHIP: ${currentStep.chipRaceTitle}` : '') : `ANTE : ${currentStep.ante.toLocaleString()}`)}
                     </div>
 
-                    <div className="w-full max-w-sm mx-auto border-b border-gold/30 my-2"></div>
+                    <div className="w-full max-w-xs mx-auto border-b border-gold/30 my-1"></div>
 
-                    <div className="text-gray-200 font-medium tracking-wide" style={{ fontSize: `${fontSizes.nextLevelPx || 46}px` }}>
+                    <div className="text-gray-300 font-medium" style={{ fontSize: `${fontSizes.nextLevelPx || 46}px` }}>
                         Next: <span className="text-white font-semibold">{tour.gameStats.isFinished ? 'END GAME' : getNextLevelInfo(tour)}</span>
                     </div>
                 </div>
 
-                <div className="w-full lg:col-span-3 lg:order-1 grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-col gap-3 text-left border-t lg:border-t-0 lg:border-l border-gold/20 pt-4 lg:pt-0 lg:pl-4">
-                    <div className="bg-black/50 p-3 rounded-2xl border border-gray-800">
-                        <div className="text-gray-400 font-bold tracking-wider uppercase mb-0.5" style={{ fontSize: `${Math.max(10, (fontSizes.statsPx || 30) - 12)}px` }}>PLAYERS</div>
+                <div className="w-full md:col-span-3 md:order-1 grid grid-cols-2 sm:grid-cols-3 md:flex md:flex-col gap-2 md:gap-3 text-left border-t md:border-t-0 md:border-l border-gold/20 pt-3 md:pt-0 md:pl-3">
+                    <div>
+                        <div className="text-gray-400 font-bold tracking-wider uppercase mb-0.5" style={{ fontSize: `${Math.max(9, (fontSizes.statsPx || 30) - 10)}px` }}>PLAYERS</div>
                         <div className="text-white font-black" style={{ fontSize: `${fontSizes.statsPx || 30}px` }}>{playersLeft} / {tour.gameStats.buyIns}</div>
                     </div>
 
-                    <div className="bg-black/50 p-3 rounded-2xl border border-gray-800">
-                        <div className="text-gray-400 font-bold tracking-wider uppercase mb-0.5" style={{ fontSize: `${Math.max(10, (fontSizes.statsPx || 30) - 12)}px` }}>RE-BUY</div>
+                    <div>
+                        <div className="text-gray-400 font-bold tracking-wider uppercase mb-0.5" style={{ fontSize: `${Math.max(9, (fontSizes.statsPx || 30) - 10)}px` }}>RE-BUY</div>
                         <div className="text-white font-black" style={{ fontSize: `${fontSizes.statsPx || 30}px` }}>{tour.gameStats.rebuys}</div>
                     </div>
 
-                    <div className="bg-black/50 p-3 rounded-2xl border border-gray-800">
-                        <div className="text-gray-400 font-bold tracking-wider uppercase mb-0.5" style={{ fontSize: `${Math.max(10, (fontSizes.statsPx || 30) - 12)}px` }}>TOTAL ENTRIES</div>
+                    <div>
+                        <div className="text-gray-400 font-bold tracking-wider uppercase mb-0.5" style={{ fontSize: `${Math.max(9, (fontSizes.statsPx || 30) - 10)}px` }}>TOTAL ENTRIES</div>
                         <div className="text-white font-black" style={{ fontSize: `${fontSizes.statsPx || 30}px` }}>{totalEntries}</div>
                     </div>
 
-                    <div className="bg-black/50 p-3 rounded-2xl border border-gray-800">
-                        <div className="text-gray-400 font-bold tracking-wider uppercase mb-0.5" style={{ fontSize: `${Math.max(10, (fontSizes.statsPx || 30) - 12)}px` }}>TOTAL STACK</div>
+                    <div>
+                        <div className="text-gray-400 font-bold tracking-wider uppercase mb-0.5" style={{ fontSize: `${Math.max(9, (fontSizes.statsPx || 30) - 10)}px` }}>TOTAL STACK</div>
                         <div className="text-white font-black" style={{ fontSize: `${fontSizes.statsPx || 30}px` }}>{totalChipsInPlay.toLocaleString()}</div>
                     </div>
 
-                    <div className="bg-black/50 p-3 rounded-2xl border border-gray-800">
-                        <div className="text-gray-400 font-bold tracking-wider uppercase mb-0.5" style={{ fontSize: `${Math.max(10, (fontSizes.statsPx || 30) - 12)}px` }}>AVG STACK</div>
+                    <div>
+                        <div className="text-gray-400 font-bold tracking-wider uppercase mb-0.5" style={{ fontSize: `${Math.max(9, (fontSizes.statsPx || 30) - 10)}px` }}>AVG STACK</div>
                         <div className="text-white font-black" style={{ fontSize: `${fontSizes.statsPx || 30}px` }}>{avgStack.toLocaleString()}</div>
                     </div>
 
-                    <div className="bg-black/50 p-3 rounded-2xl border border-gray-800 lg:pt-2.5">
-                        <div className="text-gray-400 font-bold tracking-wider uppercase mb-0.5" style={{ fontSize: `${Math.max(10, (fontSizes.statsPx || 30) - 12)}px` }}>NEXT BREAK</div>
+                    <div className="md:pt-1.5 md:border-t border-gray-800">
+                        <div className="text-gray-400 font-bold tracking-wider uppercase mb-0.5" style={{ fontSize: `${Math.max(9, (fontSizes.statsPx || 30) - 10)}px` }}>NEXT BREAK</div>
                         <div className="text-white font-black" style={{ fontSize: `${fontSizes.statsPx || 30}px` }}>{nextBreakTime}</div>
                     </div>
                 </div>
 
-                <div className="w-full lg:col-span-3 lg:order-3 text-right flex flex-col justify-center h-full border-t lg:border-t-0 border-gold/20 pt-4 lg:pt-0 my-auto">
-                    <div className="w-full text-center lg:text-right my-auto bg-black/50 p-4 rounded-2xl border border-gray-800">
-                        <div className="text-gray-400 font-semibold tracking-widest uppercase mb-1" style={{ fontSize: `${Math.max(10, (fontSizes.payoutsPx || 24) - 6)}px` }}>PRIZE POOL</div>
+                <div className="w-full md:col-span-3 md:order-3 text-right flex flex-col justify-center h-full border-t md:border-t-0 border-gold/20 pt-3 md:pt-0 my-auto">
+                    <div className="w-full text-center md:text-right my-auto">
+                        <div className="text-gray-400 font-semibold tracking-widest uppercase mb-1" style={{ fontSize: `${Math.max(9, (fontSizes.payoutsPx || 24) - 6)}px` }}>PRIZE POOL</div>
                         
-                        <div className="font-black text-gold-bright tracking-tight mb-3" style={{ fontSize: `${(fontSizes.payoutsPx || 24) + 10}px` }}>
+                        <div className="font-black text-gold-bright tracking-tight mb-2 sm:mb-3" style={{ fontSize: `${(fontSizes.payoutsPx || 24) + 10}px` }}>
                             {totalPointsFromPayouts.toLocaleString()} TOKEN
                         </div>
 
-                        <div className="space-y-2 text-left border-t border-gray-800 pt-3 max-w-xs mx-auto lg:ml-auto" style={{ fontSize: `${fontSizes.payoutsPx || 24}px` }}>
+                        <div className="space-y-1.5 text-left border-t border-gray-800/80 pt-2.5 max-w-xs ml-auto" style={{ fontSize: `${fontSizes.payoutsPx || 24}px` }}>
                             {tour.payouts.map((p, idx) => (
                                 <div key={idx} className="flex justify-between items-center font-bold px-1">
                                     <span className="text-gray-300">{p.place}</span>
@@ -662,20 +539,20 @@ function TournamentTVCard({ tour, openSinglePopout, isPopoutWindow }) {
                     </div>
 
                     {tour.config.qrCodeUrl && (
-                        <div className="mt-3 pt-2 border-t border-gray-800 flex justify-end items-center gap-3">
+                        <div className="mt-2 pt-1 border-t border-gray-800/80 flex justify-end items-center gap-2">
                             <div className="text-right">
-                                <div className="text-[11px] font-bold uppercase" style={{ color: themeStyle.blindsColor }}>Quét QR</div>
-                                <div className="text-[9px] text-gray-400">Đăng ký & thông tin</div>
+                                <div className="text-[9px] font-bold uppercase" style={{ color: themeStyle.blindsColor }}>Quét QR</div>
+                                <div className="text-[8px] text-gray-400">Đăng ký & thông tin</div>
                             </div>
-                            <img src={tour.config.qrCodeUrl} alt="QR Code" style={{ height: `${qrSize}px`, width: `${qrSize}px` }} className="object-contain rounded-xl border border-gold/40 p-1 bg-black/60 shadow" />
+                            <img src={tour.config.qrCodeUrl} alt="QR Code" style={{ height: `${qrSize}px`, width: `${qrSize}px` }} className="object-contain rounded border border-gold/40 p-0.5 bg-black/60" />
                         </div>
                     )}
                 </div>
             </div>
 
-            <div className="mt-4 pt-3 border-t border-gray-800 flex flex-col sm:flex-row justify-between items-center text-[11px] text-gray-400 font-medium gap-1">
+            <div className="mt-3 pt-2 border-t border-gray-800/80 flex justify-between items-center text-[10px] text-gray-500 font-medium">
                 <div>SNAP CALL • BOARD GAME & COFFEE • EST. 2026</div>
-                <div>Professional Poker Tournament System</div>
+                <div>Powered by Snap Call</div>
             </div>
         </div>
     );
@@ -701,50 +578,68 @@ function App() {
     const [pinInput, setPinInput] = useState('');
     const [loginError, setLoginError] = useState('');
 
-    const [appState, setAppState] = useState(() => ({
-        tours: [
-            defaultTourTemplate('MONTER STACK', 101, 100, 100),
-            defaultTourTemplate('HIGH ROLLER', 102, 500, 500),
-            defaultTourTemplate('SNAP HYPER', 103, 50, 50)
-        ],
-        presets: [],
-        selectedTourId: 101,
-        lastUpdated: Date.now()
-    }));
+    const isRemoteUpdatingRef = useRef(false);
 
-    const [adminSetupTourId, setAdminSetupTourId] = useState(101);
-    const [publicViewTourId, setPublicViewTourId] = useState(null);
+    const [appState, setAppState] = useState(() => {
+        return {
+            tours: [window.defaultTourTemplate('MONTER STACK', 101, 100, 100)],
+            presets: [],
+            selectedTourId: 101
+        };
+    });
 
     const tournaments = appState.tours || [];
     const presets = appState.presets || [];
-    const masterSelectedTourId = appState.selectedTourId || tournaments[0]?.id || 101;
-    
-    const currentPublicDisplayId = publicViewTourId || masterSelectedTourId;
-    const activePublicTour = tournaments.find(t => t.id === currentPublicDisplayId) || tournaments.find(t => t.id === masterSelectedTourId) || tournaments[0] || defaultTourTemplate('MONTER STACK', 101, 100, 100);
+    const selectedTourId = appState.selectedTourId || tournaments[0]?.id || 101;
 
-    const activeAdminTour = tournaments.find(t => t.id === adminSetupTourId) || tournaments.find(t => t.id === masterSelectedTourId) || tournaments[0] || defaultTourTemplate('MONTER STACK', 101, 100, 100);
+    const activeTour = tournaments.find(t => t.id === selectedTourId) || tournaments[0] || window.defaultTourTemplate('MONTER STACK', 101, 100, 100);
 
-    const [draftConfigState, setDraftConfigState] = useState(() => JSON.parse(JSON.stringify(activeAdminTour)));
+    const [draftConfigState, setDraftConfigState] = useState(() => JSON.parse(JSON.stringify(activeTour)));
 
     useEffect(() => {
-        setDraftConfigState(JSON.parse(JSON.stringify(activeAdminTour)));
-    }, [adminSetupTourId, masterSelectedTourId]);
+        setDraftConfigState(JSON.parse(JSON.stringify(activeTour)));
+    }, [selectedTourId, activeTour]);
+
+    useEffect(() => {
+        const calcRemaining = () => {
+            const startDateStr = activeTour.config.scheduledStartDate || getTodayDateString();
+            const startTimeStr = activeTour.config.scheduledStartTime || '13:00';
+            const [yyyy, mm, dd] = startDateStr.split('-').map(Number);
+            const [hrs, mins] = startTimeStr.split(':').map(Number);
+            const targetDate = new Date(yyyy, mm - 1, dd, hrs, mins, 0);
+            return Math.floor((targetDate.getTime() - Date.now()) / 1000);
+        };
+
+        setPreTourCountdownSecs(calcRemaining());
+        const interval = setInterval(() => setPreTourCountdownSecs(calcRemaining()), 1000);
+        return () => clearInterval(interval);
+    }, [activeTour.config.scheduledStartDate, activeTour.config.scheduledStartTime]);
+
+    const setSelectedTourId = (newTourId) => {
+        setAppState(prev => {
+            const nextState = { ...prev, selectedTourId: newTourId };
+            if (window.saveTournamentsToCloud) {
+                window.saveTournamentsToCloud(nextState);
+            }
+            return nextState;
+        });
+    };
 
     useEffect(() => {
         if (window.initCloudSync) {
             window.initCloudSync(
-                (cloudState, isFromRemote) => {
-                    if (cloudState && cloudState.tours && Array.isArray(cloudState.tours) && cloudState.tours.length > 0) {
-                        setAppState(prev => ({
-                            tours: cloudState.tours,
-                            presets: cloudState.presets || [],
-                            selectedTourId: cloudState.selectedTourId || cloudState.tours[0].id,
-                            lastUpdated: cloudState.lastUpdated || Date.now()
-                        }));
-                        setAdminSetupTourId(currId => {
-                            const exists = cloudState.tours.some(t => t.id === currId);
-                            return exists ? currId : (cloudState.selectedTourId || cloudState.tours[0].id);
+                (cloudState) => {
+                    if (cloudState && cloudState.tours) {
+                        isRemoteUpdatingRef.current = true;
+                        setAppState(prev => {
+                            const tourExists = cloudState.tours.some(t => t.id === prev.selectedTourId);
+                            const validTourId = tourExists ? prev.selectedTourId : (cloudState.tours[0]?.id || 101);
+                            return {
+                                ...cloudState,
+                                selectedTourId: validTourId
+                            };
                         });
+                        setTimeout(() => { isRemoteUpdatingRef.current = false; }, 300);
                     }
                 },
                 (status) => setIsCloudSynced(status)
@@ -752,54 +647,11 @@ function App() {
         }
     }, []);
 
-    useEffect(() => {
-        const calcRemaining = () => {
-            const startDateStr = activePublicTour.config.scheduledStartDate || getTodayDateString();
-            const startTimeStr = activePublicTour.config.scheduledStartTime || '13:00';
-            
-            const [yyyy, mm, dd] = startDateStr.split('-').map(Number);
-            const [hrs, mins] = startTimeStr.split(':').map(Number);
-            
-            const targetDate = new Date(yyyy, mm - 1, dd, hrs, mins, 0);
-            const now = new Date();
-            
-            return Math.floor((targetDate.getTime() - now.getTime()) / 1000);
-        };
-
-        setPreTourCountdownSecs(calcRemaining());
-        const interval = setInterval(() => {
-            setPreTourCountdownSecs(calcRemaining());
-        }, 1000);
-        return () => clearInterval(interval);
-    }, [activePublicTour.config.scheduledStartDate, activePublicTour.config.scheduledStartTime]);
-
-    const handlePublicViewTourClick = (tourId) => {
-        setPublicViewTourId(tourId);
-    };
-
-    const handleAdminSelectTourId = (tourId) => {
-        setAdminSetupTourId(tourId);
-        if (isAdminLoggedIn) {
-            setAppState(prev => {
-                const nextState = { ...prev, selectedTourId: tourId, lastUpdated: Date.now() };
-                if (window.saveTournamentsToCloud) {
-                    window.saveTournamentsToCloud(nextState);
-                }
-                return nextState;
-            });
-        }
-    };
-
     const applyDraftChangesToLive = () => {
-        if (!isAdminLoggedIn) {
-            alert("Bạn cần Đăng nhập Admin để áp dụng thay đổi!");
-            return;
-        }
         setAppState(prev => {
             const nextState = {
                 ...prev,
-                tours: prev.tours.map(t => t.id === adminSetupTourId ? JSON.parse(JSON.stringify(draftConfigState)) : t),
-                lastUpdated: Date.now()
+                tours: prev.tours.map(t => t.id === selectedTourId ? JSON.parse(JSON.stringify(draftConfigState)) : t)
             };
             if (window.saveTournamentsToCloud) {
                 window.saveTournamentsToCloud(nextState);
@@ -839,8 +691,67 @@ function App() {
         }
     };
 
+    const playSoundEffect = (soundType) => {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            if (soundType === 'Boxing Bell') {
+                [0, 150].forEach(delay => {
+                    setTimeout(() => {
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(1200, ctx.currentTime);
+                        gain.gain.setValueAtTime(0.5, ctx.currentTime);
+                        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.start();
+                        osc.stop(ctx.currentTime + 0.8);
+                    }, delay);
+                });
+            } else if (soundType === 'Chime Bell') {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, ctx.currentTime);
+                gain.gain.setValueAtTime(0.4, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.2);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 1.2);
+            } else if (soundType === 'Digital Beep') {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(1500, ctx.currentTime);
+                gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.25);
+            } else if (soundType === 'Whistle') {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(2400, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(2800, ctx.currentTime + 0.3);
+                gain.gain.setValueAtTime(0.4, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.4);
+            }
+        } catch (e) {
+            console.log("Audio play error:", e);
+        }
+    };
+
     useEffect(() => {
         const timer = setInterval(() => {
+            if (isRemoteUpdatingRef.current) return;
             const now = Date.now();
             setAppState(prevState => {
                 let changed = false;
@@ -885,7 +796,7 @@ function App() {
                         } else {
                             return {
                                 ...tour,
-                                gameStats: { ...tour.gameStats, secondsLeft: 0, targetEndTime: null, isPaused: true }
+                                gameStats: { ...tour.gameStats, secondsLeft: 0, targetEndTime: null, isPaused: true, isFinished: true }
                             };
                         }
                     }
@@ -896,7 +807,7 @@ function App() {
                 }
                 return prevState;
             });
-        }, 300);
+        }, 500);
         return () => clearInterval(timer);
     }, []);
 
@@ -908,14 +819,13 @@ function App() {
     };
 
     const updateDraftFontSize = (field, val) => {
-        const numVal = val === '' ? '' : Number(val);
         setDraftConfigState(prev => ({
             ...prev,
             config: {
                 ...prev.config,
                 fontCustomSizes: {
                     ...(prev.config.fontCustomSizes || {}),
-                    [field]: numVal
+                    [field]: Number(val)
                 }
             }
         }));
@@ -932,7 +842,6 @@ function App() {
                     let width = img.width;
                     let height = img.height;
                     const maxDim = 800;
-
                     if (width > maxDim || height > maxDim) {
                         if (width > height) {
                             height = Math.round((height * maxDim) / width);
@@ -942,14 +851,11 @@ function App() {
                             height = maxDim;
                         }
                     }
-
                     canvas.width = width;
                     canvas.height = height;
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, width, height);
-
-                    const compressedBase64 = canvas.toDataURL('image/jpeg', 0.75);
-                    updateDraftConfig(configField, compressedBase64);
+                    updateDraftConfig(configField, canvas.toDataURL('image/jpeg', 0.75));
                 };
                 img.src = event.target.result;
             };
@@ -958,12 +864,11 @@ function App() {
     };
 
     const handleStatChange = (field, delta) => {
-        if (!isAdminLoggedIn) return;
         setAppState(prev => {
             const nextState = {
                 ...prev,
                 tours: prev.tours.map(t => {
-                    if (t.id === adminSetupTourId) {
+                    if (t.id === selectedTourId) {
                         return {
                             ...t,
                             gameStats: {
@@ -973,18 +878,14 @@ function App() {
                         };
                     }
                     return t;
-                }),
-                lastUpdated: Date.now()
+                })
             };
-            if (window.saveTournamentsToCloud) {
-                window.saveTournamentsToCloud(nextState);
-            }
+            if (window.saveTournamentsToCloud) window.saveTournamentsToCloud(nextState);
             return nextState;
         });
     };
 
     const togglePauseTour = (tourId) => {
-        if (!isAdminLoggedIn) return;
         const now = Date.now();
         setAppState(prev => {
             const nextState = {
@@ -995,38 +896,25 @@ function App() {
                         if (willPause) {
                             return {
                                 ...t,
-                                gameStats: {
-                                    ...t.gameStats,
-                                    isPaused: true,
-                                    targetEndTime: null
-                                }
+                                gameStats: { ...t.gameStats, isPaused: true, targetEndTime: null }
                             };
                         } else {
                             return {
                                 ...t,
-                                gameStats: {
-                                    ...t.gameStats,
-                                    isPaused: false,
-                                    isFinished: false,
-                                    targetEndTime: now + (t.gameStats.secondsLeft * 1000)
-                                }
+                                gameStats: { ...t.gameStats, isPaused: false, isFinished: false, targetEndTime: now + (t.gameStats.secondsLeft * 1000) }
                             };
                         }
                     }
                     return t;
-                }),
-                lastUpdated: Date.now()
+                })
             };
-            if (window.saveTournamentsToCloud) {
-                window.saveTournamentsToCloud(nextState);
-            }
+            if (window.saveTournamentsToCloud) window.saveTournamentsToCloud(nextState);
             return nextState;
         });
     };
 
     const finishTour = (tourId) => {
-        if (!isAdminLoggedIn) return;
-        if (window.confirm("Bạn có chắc chắn muốn KẾT THÚC Tour đấu này? Giao diện TV sẽ hiển thị vinh danh kết thúc.")) {
+        if (window.confirm("Bạn có chắc chắn muốn KẾT THÚC Tour đấu này?")) {
             setAppState(prev => {
                 const nextState = {
                     ...prev,
@@ -1034,28 +922,19 @@ function App() {
                         if (t.id === tourId) {
                             return {
                                 ...t,
-                                gameStats: {
-                                    ...t.gameStats,
-                                    isPaused: true,
-                                    isFinished: true,
-                                    targetEndTime: null
-                                }
+                                gameStats: { ...t.gameStats, isPaused: true, isFinished: true, targetEndTime: null }
                             };
                         }
                         return t;
-                    }),
-                    lastUpdated: Date.now()
+                    })
                 };
-                if (window.saveTournamentsToCloud) {
-                    window.saveTournamentsToCloud(nextState);
-                }
+                if (window.saveTournamentsToCloud) window.saveTournamentsToCloud(nextState);
                 return nextState;
             });
         }
     };
 
     const adjustTimerSeconds = (tourId, deltaSeconds) => {
-        if (!isAdminLoggedIn) return;
         const now = Date.now();
         setAppState(prev => {
             const nextState = {
@@ -1073,40 +952,27 @@ function App() {
                         };
                     }
                     return t;
-                }),
-                lastUpdated: Date.now()
+                })
             };
-            if (window.saveTournamentsToCloud) {
-                window.saveTournamentsToCloud(nextState);
-            }
+            if (window.saveTournamentsToCloud) window.saveTournamentsToCloud(nextState);
             return nextState;
         });
     };
 
     const addNewTournament = () => {
-        if (!isAdminLoggedIn) return;
         const newId = Date.now();
-        const newTour = defaultTourTemplate(`TOUR #${tournaments.length + 1}`, newId, 100, 100);
+        const newTour = window.defaultTourTemplate(`TOUR #${tournaments.length + 1}`, newId, 100, 100);
         newTour.gameStats.isPaused = true;
         newTour.gameStats.targetEndTime = null;
 
         setAppState(prev => {
-            const nextState = { 
-                ...prev, 
-                tours: [...prev.tours, newTour], 
-                selectedTourId: newId, 
-                lastUpdated: Date.now() 
-            };
-            if (window.saveTournamentsToCloud) {
-                window.saveTournamentsToCloud(nextState);
-            }
+            const nextState = { ...prev, tours: [...prev.tours, newTour], selectedTourId: newId };
+            if (window.saveTournamentsToCloud) window.saveTournamentsToCloud(nextState);
             return nextState;
         });
-        setAdminSetupTourId(newId);
     };
 
     const removeTournament = (tourId) => {
-        if (!isAdminLoggedIn) return;
         if (tournaments.length <= 1) {
             alert("Cần duy trì ít nhất 1 giải đấu trong hệ thống!");
             return;
@@ -1114,152 +980,16 @@ function App() {
         if (window.confirm("Xóa giải đấu này khỏi hệ thống?")) {
             const remaining = tournaments.filter(t => t.id !== tourId);
             setAppState(prev => {
-                const nextState = { 
-                    ...prev, 
-                    tours: remaining, 
-                    selectedTourId: remaining[0].id, 
-                    lastUpdated: Date.now() 
-                };
-                if (window.saveTournamentsToCloud) {
-                    window.saveTournamentsToCloud(nextState);
-                }
+                const nextState = { ...prev, tours: remaining, selectedTourId: remaining[0].id };
+                if (window.saveTournamentsToCloud) window.saveTournamentsToCloud(nextState);
                 return nextState;
             });
-            setAdminSetupTourId(remaining[0].id);
-        }
-    };
-
-    const saveCurrentTourAsPreset = () => {
-        if (!isAdminLoggedIn) return;
-        const presetName = prompt("Nhập tên để lưu mẫu Tour này (vd: Monster Stack 100k, High Roller 500k):", activeAdminTour.config.name);
-        if (!presetName) return;
-
-        const newPreset = {
-            id: Date.now(),
-            name: presetName,
-            tourTemplate: JSON.parse(JSON.stringify(activeAdminTour))
-        };
-
-        setAppState(prev => {
-            const nextState = {
-                ...prev,
-                presets: [...(prev.presets || []).filter(p => p.name !== presetName), newPreset],
-                lastUpdated: Date.now()
-            };
-            if (window.saveTournamentsToCloud) {
-                window.saveTournamentsToCloud(nextState);
-            }
-            return nextState;
-        });
-        alert(`Đã lưu mẫu tour "${presetName}" thành công!`);
-    };
-
-    const applyPresetToActiveTour = (presetObj) => {
-        if (!isAdminLoggedIn) return;
-        if (window.confirm(`Bạn có muốn nạp mẫu tour "${presetObj.name}" đè lên tour "${activeAdminTour.config.name}" hiện tại?`)) {
-            const loaded = JSON.parse(JSON.stringify(presetObj.tourTemplate));
-            loaded.id = adminSetupTourId;
-            loaded.gameStats.isPaused = true;
-            loaded.gameStats.targetEndTime = null;
-
-            setAppState(prev => {
-                const nextState = {
-                    ...prev,
-                    tours: prev.tours.map(t => t.id === adminSetupTourId ? loaded : t),
-                    lastUpdated: Date.now()
-                };
-                if (window.saveTournamentsToCloud) {
-                    window.saveTournamentsToCloud(nextState);
-                }
-                return nextState;
-            });
-        }
-    };
-
-    const deletePreset = (presetId, presetName) => {
-        if (!isAdminLoggedIn) return;
-        if (window.confirm(`Bạn có chắc chắn muốn XÓA mẫu tour "${presetName}" khỏi thư viện?`)) {
-            setAppState(prev => {
-                const nextState = {
-                    ...prev,
-                    presets: (prev.presets || []).filter(p => p.id !== presetId),
-                    lastUpdated: Date.now()
-                };
-                if (window.saveTournamentsToCloud) {
-                    window.saveTournamentsToCloud(nextState);
-                }
-                return nextState;
-            });
-        }
-    };
-
-    const saveSingleTourToFile = () => {
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(activeAdminTour, null, 2));
-        const downloadAnchor = document.createElement('a');
-        downloadAnchor.setAttribute("href", dataStr);
-        downloadAnchor.setAttribute("download", `tour_${activeAdminTour.config.name.replace(/\s+/g, '_')}_${Date.now()}.json`);
-        document.body.appendChild(downloadAnchor);
-        downloadAnchor.click();
-        downloadAnchor.remove();
-    };
-
-    const loadSingleTourFromFile = (e) => {
-        if (!isAdminLoggedIn) return;
-        const fileReader = new FileReader();
-        if (e.target.files && e.target.files[0]) {
-            fileReader.readAsText(e.target.files[0], "UTF-8");
-            fileReader.onload = (event) => {
-                try {
-                    const parsedData = JSON.parse(event.target.result);
-                    if (parsedData && parsedData.config && parsedData.blinds) {
-                        setAppState(prev => {
-                            const nextState = {
-                                ...prev,
-                                tours: prev.tours.map(t => {
-                                    if (t.id === adminSetupTourId) {
-                                        return {
-                                            ...parsedData,
-                                            id: adminSetupTourId,
-                                            gameStats: {
-                                                ...parsedData.gameStats,
-                                                isPaused: true,
-                                                targetEndTime: null
-                                            }
-                                        };
-                                    }
-                                    return t;
-                                }),
-                                lastUpdated: Date.now()
-                            };
-                            if (window.saveTournamentsToCloud) {
-                                window.saveTournamentsToCloud(nextState);
-                            }
-                            return nextState;
-                        });
-                        alert(`Đã cập nhật tour "${parsedData.config.name}" thành công!`);
-                    } else if (Array.isArray(parsedData) && parsedData.length > 0) {
-                        setAppState(prev => {
-                            const nextState = { ...prev, tours: parsedData, selectedTourId: parsedData[0].id, lastUpdated: Date.now() };
-                            if (window.saveTournamentsToCloud) {
-                                window.saveTournamentsToCloud(nextState);
-                            }
-                            return nextState;
-                        });
-                        alert("Đã nhập toàn bộ danh sách Tour thành công!");
-                    } else {
-                        alert("File JSON không hợp lệ!");
-                    }
-                } catch (error) {
-                    alert("Lỗi đọc file JSON! Vui lòng kiểm tra lại định dạng.");
-                }
-            };
         }
     };
 
     const openSinglePopoutWindow = (targetTourId) => {
         const popoutWindow = window.open('', '_blank', 'width=1280,height=720,left=0,top=0');
         if (!popoutWindow) return;
-
         popoutWindow.document.write(`
             <!DOCTYPE html>
             <html lang="vi">
@@ -1275,15 +1005,10 @@ function App() {
         `);
         popoutWindow.document.close();
 
-        let currentPopoutState = appState;
-
-        const renderPopoutContainer = (stateToRender) => {
+        const renderPopoutContainer = () => {
             const popoutRoot = popoutWindow.document.getElementById('popout-root');
             if (!popoutRoot) return;
-
-            const targetTour = (stateToRender.tours || []).find(t => t.id === targetTourId) || (stateToRender.tours && stateToRender.tours[0]);
-            if (!targetTour) return;
-
+            const targetTour = appState.tours.find(t => t.id === targetTourId) || activeTour;
             ReactDOM.render(
                 <div className="w-full h-full flex flex-col justify-center items-center p-0 m-0 overflow-hidden">
                     <TournamentTVCard tour={targetTour} isPopoutWindow={true} />
@@ -1291,1207 +1016,249 @@ function App() {
                 popoutRoot
             );
         };
-
-        renderPopoutContainer(currentPopoutState);
-
-        const channel = new BroadcastChannel('snapcall_popout_sync');
-        channel.onmessage = (event) => {
-            if (event.data && event.data.data) {
-                currentPopoutState = event.data.data;
-                renderPopoutContainer(currentPopoutState);
-            }
-        };
-
-        const timer = setInterval(() => {
-            if (popoutWindow.closed) {
-                clearInterval(timer);
-                channel.close();
-            } else {
-                renderPopoutContainer(currentPopoutState);
-            }
+        renderPopoutContainer();
+        const interval = setInterval(() => {
+            if (popoutWindow.closed) clearInterval(interval);
+            else renderPopoutContainer();
         }, 300);
     };
 
-    const calculateNextProfessionalBlind = (currentBb) => {
-        const standardSequence = [
-            100, 200, 300, 400, 500, 600, 800, 
-            1000, 1200, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 
-            10000, 12000, 15000, 20000, 25000, 30000, 40000, 50000, 60000, 80000, 
-            100000, 120000, 150000, 200000, 250000, 300000, 400000, 500000, 600000, 800000,
-            1000000
-        ];
-
-        const matchIdx = standardSequence.findIndex(val => val > currentBb);
-        let rawSb = 0;
-        let nextBb = 0;
-
-        if (matchIdx !== -1) {
-            nextBb = standardSequence[matchIdx];
-            rawSb = Math.round(nextBb / 2);
-        } else {
-            nextBb = Math.round((currentBb * 1.5) / 1000) * 1000;
-            rawSb = Math.round(nextBb / 2);
-        }
-        
-        let roundedSb = rawSb;
-        if (rawSb >= 100 && rawSb % 100 !== 0) {
-            roundedSb = Math.ceil(rawSb / 100) * 100;
-        }
-
-        return { sb: roundedSb, bb: nextBb, ante: nextBb };
-    };
-
-    const addBlindLevelDraft = (type) => {
-        let newLevelObj = { id: Date.now(), type: 'break', length: 10, title: 'Break', isChipRace: false, chipRaceTitle: '' };
-        
-        if (type === 'level') {
-            const lastLevel = [...draftConfigState.blinds].reverse().find(b => b.type === 'level');
-            if (lastLevel) {
-                const nextBlinds = calculateNextProfessionalBlind(lastLevel.bb);
-                newLevelObj = {
-                    id: Date.now(),
-                    type: 'level',
-                    sb: nextBlinds.sb,
-                    bb: nextBlinds.bb,
-                    ante: nextBlinds.ante,
-                    length: lastLevel.length || 17
-                };
-            } else {
-                newLevelObj = { id: Date.now(), type: 'level', sb: 100, bb: 100, ante: 100, length: 17 };
-            }
-        }
-
-        setDraftConfigState(prev => ({
-            ...prev,
-            blinds: [...prev.blinds, newLevelObj]
-        }));
-    };
-
-    const removeBlindDraft = (id) => {
-        setDraftConfigState(prev => ({
-            ...prev,
-            blinds: prev.blinds.filter(b => b.id !== id)
-        }));
-    };
-
-    const handleDragStart = (e, index) => {
-        setDraggedBlindIdx(index);
-        e.dataTransfer.effectAllowed = "move";
-    };
-
-    const handleDragOver = (e, index) => {
-        e.preventDefault();
-        if (draggedBlindIdx === null || draggedBlindIdx === index) return;
-        
-        const newBlinds = [...draftConfigState.blinds];
-        const draggedItem = newBlinds[draggedBlindIdx];
-        newBlinds.splice(draggedBlindIdx, 1);
-        newBlinds.splice(index, 0, draggedItem);
-        
-        setDraggedBlindIdx(index);
-        setDraftConfigState(prev => ({ ...prev, blinds: newBlinds }));
-    };
-
-    const handleDragEnd = () => {
-        setDraggedBlindIdx(null);
-    };
-
-    const updateBlindFieldDraft = (bId, field, val) => {
-        const valueToSave = val === '' ? '' : (field === 'title' || field === 'chipRaceTitle' ? val : Number(val));
-        setDraftConfigState(prev => ({
-            ...prev,
-            blinds: prev.blinds.map(item => item.id === bId ? { ...item, [field]: valueToSave } : item)
-        }));
-    };
-
-    const addPayoutItemDraft = () => {
-        const nextPlaceNum = draftConfigState.payouts.length + 1;
-        setDraftConfigState(prev => ({
-            ...prev,
-            payouts: [...prev.payouts, { place: `Top ${nextPlaceNum}`, value: 1 }]
-        }));
-    };
-
-    const removePayoutItemDraft = (idx) => {
-        if (draftConfigState.payouts.length <= 1) {
-            alert("Cần duy trì ít nhất 1 mức giải thưởng!");
-            return;
-        }
-        setDraftConfigState(prev => ({
-            ...prev,
-            payouts: draftConfigState.payouts.filter((_, i) => i !== idx)
-        }));
-    };
-
-    const nextStepTour = (tourId) => {
-        if (!isAdminLoggedIn) return;
-        const now = Date.now();
-        setAppState(prev => {
-            const nextState = {
-                ...prev,
-                tours: prev.tours.map(t => {
-                    if (t.id === tourId && t.gameStats.currentStepIdx < t.blinds.length - 1) {
-                        const nextIdx = t.gameStats.currentStepIdx + 1;
-                        const nextSecs = t.blinds[nextIdx].length * 60;
-                        return {
-                            ...t,
-                            gameStats: {
-                                ...t.gameStats,
-                                currentStepIdx: nextIdx,
-                                secondsLeft: nextSecs,
-                                targetEndTime: t.gameStats.isPaused ? null : now + (nextSecs * 1000)
-                            }
-                        };
-                    }
-                    return t;
-                }),
-                lastUpdated: Date.now()
-            };
-            if (window.saveTournamentsToCloud) {
-                window.saveTournamentsToCloud(nextState);
-            }
-            return nextState;
-        });
-    };
-
-    const prevStepTour = (tourId) => {
-        if (!isAdminLoggedIn) return;
-        const now = Date.now();
-        setAppState(prev => {
-            const nextState = {
-                ...prev,
-                tours: prev.tours.map(t => {
-                    if (t.id === tourId && t.gameStats.currentStepIdx > 0) {
-                        const prevIdx = t.gameStats.currentStepIdx - 1;
-                        const prevSecs = t.blinds[prevIdx].length * 60;
-                        return {
-                            ...t,
-                            gameStats: {
-                                ...t.gameStats,
-                                currentStepIdx: prevIdx,
-                                secondsLeft: prevSecs,
-                                targetEndTime: t.gameStats.isPaused ? null : now + (prevSecs * 1000)
-                            }
-                        };
-                    }
-                    return t;
-                }),
-                lastUpdated: Date.now()
-            };
-            if (window.saveTournamentsToCloud) {
-                window.saveTournamentsToCloud(nextState);
-            }
-            return nextState;
-        });
-    };
-
-    const handleSearchPhone = (e) => {
-        e.preventDefault();
-        const inputClean = searchPhoneInput.trim();
-        if (!inputClean) return;
-
-        const found = mockLeaderboardData.find(p => p.phoneLast4 === inputClean || p.name.toLowerCase().includes(inputClean.toLowerCase()));
-        if (found) {
-            setSearchResultPlayer(found);
-        } else {
-            setSearchResultPlayer({ name: `Hội viên (${inputClean})`, rank: 'Ngoài Top', monthElo: 0, quarterElo: 0, notFound: true });
-        }
-    };
-
-    const formatTimeHHMMSS = (totalSeconds) => {
-        const hrs = Math.floor(totalSeconds / 3600);
-        const mins = Math.floor((totalSeconds % 3600) / 60);
-        const secs = Math.floor(totalSeconds % 60);
-        return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    };
-
-    const fontCustomSizes = draftConfigState.config.fontCustomSizes || {
-        brandPx: 30,
-        headerPx: 56,
-        subHeaderPx: 18,
-        timerPx: 120,
-        blindsPx: 54,
-        nextLevelPx: 46,
-        statsPx: 30,
-        payoutsPx: 24,
-        levelBadgePx: 22,
-        tourInfoPx: 18
-    };
-
     return (
-        <div className="min-h-screen flex flex-col justify-between pb-20 md:pb-0">
-            {/* HEADER ĐIỀU HƯỚNG TOP BAR */}
-            <header className="hidden md:flex w-full bg-black/90 backdrop-blur-md border-b border-gold/30 px-6 py-3 justify-between items-center z-50 text-sm">
+        <div className="min-h-screen flex flex-col justify-between pb-16 md:pb-0">
+            <header className="hidden md:flex w-full bg-black/80 backdrop-blur-md border-b border-gold/30 px-4 py-2.5 justify-between items-center z-50 text-xs sm:text-sm">
                 <div className="flex items-center space-x-3">
-                    <span className="bg-red-950/90 border border-red-600/50 text-red-400 font-extrabold px-3 py-1.5 rounded-xl tracking-wider uppercase shadow">SNAP CALL POKER</span>
-                    <span className="text-gray-300 font-semibold">| {activePublicTour.config.clubName}</span>
+                    <span className="bg-red-950/90 border border-red-600/50 text-red-400 font-extrabold px-2.5 py-1 rounded tracking-wider uppercase">SNAP CALL POKER</span>
+                    <span className="text-gray-300 font-semibold">| {activeTour.config.clubName}</span>
                 </div>
-
-                <div className="flex items-center space-x-2 bg-black/75 p-1.5 rounded-2xl border border-gold/30 shadow-inner">
-                    <button 
-                        onClick={() => setActiveView('combined-dashboard')}
-                        className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer flex items-center gap-1.5 ${activeView === 'combined-dashboard' ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-black shadow-lg font-black' : 'text-gray-300 hover:text-white'}`}
-                    >
-                        <i className="fa-solid fa-trophy"></i> BXH & Tour
+                <div className="flex items-center space-x-1.5 bg-black/60 p-1 rounded-xl border border-gold/30">
+                    <button onClick={() => setActiveView('combined-dashboard')} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${activeView === 'combined-dashboard' ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-black shadow' : 'text-gray-300 hover:text-white'}`}>
+                        <i className="fa-solid fa-trophy mr-1"></i> BXH & Tour
                     </button>
-                    <button 
-                        onClick={() => navigateToProtectedView('pos-orders')}
-                        className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer flex items-center gap-1.5 ${activeView === 'pos-orders' ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-black shadow-lg font-black' : 'text-gray-300 hover:text-white'}`}
-                    >
-                        <i className="fa-solid fa-cart-shopping"></i> Đặt Đơn (POS)
+                    <button onClick={() => navigateToProtectedView('pos-orders')} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${activeView === 'pos-orders' ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-black shadow' : 'text-gray-300 hover:text-white'}`}>
+                        <i className="fa-solid fa-cart-shopping mr-1"></i> Đặt Đơn (POS)
                     </button>
-                    <button 
-                        onClick={() => navigateToProtectedView('player-tv')}
-                        className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer flex items-center gap-1.5 ${activeView === 'player-tv' ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-black shadow-lg font-black' : 'text-gray-300 hover:text-white'}`}
-                    >
-                        <i className="fa-solid fa-desktop"></i> Tour View
+                    <button onClick={() => navigateToProtectedView('player-tv')} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${activeView === 'player-tv' ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-black shadow' : 'text-gray-300 hover:text-white'}`}>
+                        <i className="fa-solid fa-desktop mr-1"></i> Tour View
                     </button>
-                    <button 
-                        onClick={() => navigateToProtectedView('admin')}
-                        className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition cursor-pointer flex items-center gap-1.5 ${activeView === 'admin' ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-black shadow-lg font-black' : 'text-amber-400 hover:text-amber-300'}`}
-                    >
-                        <i className="fa-solid fa-sliders"></i> Admin Setup
+                    <button onClick={() => navigateToProtectedView('admin')} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${activeView === 'admin' ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-black shadow' : 'text-amber-400 hover:text-amber-300'}`}>
+                        <i className="fa-solid fa-sliders mr-1"></i> Admin Setup
                     </button>
                     {isAdminLoggedIn && (
-                        <button onClick={handleLogout} className="px-2.5 py-2 text-red-400 hover:text-red-300 text-xs font-bold" title="Đăng xuất Admin">
+                        <button onClick={handleLogout} className="px-2 py-1 text-red-400 hover:text-red-300 text-xs font-bold" title="Đăng xuất">
                             <i className="fa-solid fa-right-from-bracket"></i>
                         </button>
                     )}
                 </div>
             </header>
 
-            {/* THANH BOTTOM NAVIGATION BAR MOBILE & IPAD PORTRAIT */}
-            <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-xl border-t border-gold/40 flex justify-around items-center py-2.5 px-2 text-[11px] shadow-2xl">
-                <button 
-                    onClick={() => setActiveView('combined-dashboard')}
-                    className={`flex flex-col items-center py-1 px-3 rounded-xl transition ${activeView === 'combined-dashboard' ? 'text-amber-400 font-black scale-105' : 'text-gray-400'}`}
-                >
-                    <i className="fa-solid fa-trophy text-base mb-1"></i>
-                    <span>BXH & Tour</span>
+            <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-lg border-t border-gold/40 flex justify-around items-center py-2 px-1 text-[10px]">
+                <button onClick={() => setActiveView('combined-dashboard')} className={`flex flex-col items-center py-1 px-2 rounded-lg transition ${activeView === 'combined-dashboard' ? 'text-amber-400 font-black' : 'text-gray-400'}`}>
+                    <i className="fa-solid fa-trophy text-sm mb-0.5"></i><span>BXH & Tour</span>
                 </button>
-                <button 
-                    onClick={() => navigateToProtectedView('player-tv')}
-                    className={`flex flex-col items-center py-1 px-3 rounded-xl transition ${activeView === 'player-tv' ? 'text-amber-400 font-black scale-105' : 'text-gray-400'}`}
-                >
-                    <i className="fa-solid fa-desktop text-base mb-1"></i>
-                    <span>Tour View</span>
+                <button onClick={() => navigateToProtectedView('player-tv')} className={`flex flex-col items-center py-1 px-2 rounded-lg transition ${activeView === 'player-tv' ? 'text-amber-400 font-black' : 'text-gray-400'}`}>
+                    <i className="fa-solid fa-desktop text-sm mb-0.5"></i><span>Tour View</span>
                 </button>
-                <button 
-                    onClick={() => navigateToProtectedView('pos-orders')}
-                    className={`flex flex-col items-center py-1 px-3 rounded-xl transition ${activeView === 'pos-orders' ? 'text-amber-400 font-black scale-105' : 'text-gray-400'}`}
-                >
-                    <i className="fa-solid fa-cart-shopping text-base mb-1"></i>
-                    <span>Đặt Đơn</span>
+                <button onClick={() => navigateToProtectedView('pos-orders')} className={`flex flex-col items-center py-1 px-2 rounded-lg transition ${activeView === 'pos-orders' ? 'text-amber-400 font-black' : 'text-gray-400'}`}>
+                    <i className="fa-solid fa-cart-shopping text-sm mb-0.5"></i><span>Đặt Đơn</span>
                 </button>
-                <button 
-                    onClick={() => navigateToProtectedView('admin')}
-                    className={`flex flex-col items-center py-1 px-3 rounded-xl transition ${activeView === 'admin' ? 'text-amber-400 font-black scale-105' : 'text-gray-400'}`}
-                >
-                    <i className="fa-solid fa-sliders text-base mb-1"></i>
-                    <span>Setup</span>
+                <button onClick={() => navigateToProtectedView('admin')} className={`flex flex-col items-center py-1 px-2 rounded-lg transition ${activeView === 'admin' ? 'text-amber-400 font-black' : 'text-gray-400'}`}>
+                    <i className="fa-solid fa-sliders text-sm mb-0.5"></i><span>Setup</span>
                 </button>
             </nav>
 
-            {/* MODAL ĐĂNG NHẬP ADMIN SETUP */}
             {showLoginModal && (
-                <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
-                    <div className="bg-black/95 border border-gold/50 rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-2xl relative text-center">
-                        <button onClick={() => setShowLoginModal(false)} className="absolute top-3 right-3 text-gray-400 hover:text-white font-bold text-lg">✕</button>
-                        <div className="text-gold-bright text-2xl font-bold font-cinzel mb-1">ĐĂNG NHẬP ADMIN</div>
-                        <p className="text-xs text-gray-400 mb-5">Nhập Tài khoản & Mật khẩu Admin để truy cập mục bảo vệ này</p>
-                        
-                        <form onSubmit={handleLoginSubmit} className="space-y-4 text-left">
+                <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="bg-black/90 border border-gold/40 rounded-2xl p-6 max-w-sm w-full shadow-2xl relative text-center">
+                        <button onClick={() => setShowLoginModal(false)} className="absolute top-3 right-3 text-gray-400 hover:text-white font-bold">✕</button>
+                        <div className="text-gold-bright text-xl font-bold font-cinzel mb-1">ĐĂNG NHẬP ADMIN</div>
+                        <p className="text-xs text-gray-400 mb-4">Nhập thông tin xác thực để truy cập</p>
+                        <form onSubmit={handleLoginSubmit} className="space-y-3 text-left">
                             <div>
-                                <label className="block text-gray-300 text-xs font-semibold mb-1.5">Tài khoản (ID)</label>
-                                <input 
-                                    type="text" 
-                                    value={idInput} 
-                                    onChange={(e) => setIdInput(e.target.value)} 
-                                    placeholder="Nhập Admin" 
-                                    className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white font-bold focus:border-gold outline-none text-sm" 
-                                    autoFocus 
-                                />
+                                <label className="block text-gray-400 text-xs font-semibold mb-1">Tài khoản (ID)</label>
+                                <input type="text" value={idInput} onChange={(e) => setIdInput(e.target.value)} placeholder="Admin" className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white font-bold outline-none text-sm" autoFocus />
                             </div>
                             <div>
-                                <label className="block text-gray-300 text-xs font-semibold mb-1.5">Mật khẩu (Pass)</label>
-                                <input 
-                                    type="password" 
-                                    value={pinInput} 
-                                    onChange={(e) => setPinInput(e.target.value)} 
-                                    placeholder="Nhập Mật khẩu" 
-                                    className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white font-bold focus:border-gold outline-none text-sm" 
-                                />
+                                <label className="block text-gray-400 text-xs font-semibold mb-1">Mật khẩu</label>
+                                <input type="password" value={pinInput} onChange={(e) => setPinInput(e.target.value)} placeholder="Mật khẩu" className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white font-bold outline-none text-sm" />
                             </div>
                             {loginError && <div className="text-red-400 text-xs font-bold text-center pt-1">{loginError}</div>}
-                            <button type="submit" className="w-full bg-gradient-to-r from-amber-500 to-yellow-600 text-black font-extrabold py-3 rounded-xl hover:brightness-110 transition cursor-pointer mt-2 text-sm shadow-lg">
-                                XÁC NHẬN ĐĂNG NHẬP
-                            </button>
+                            <button type="submit" className="w-full bg-gradient-to-r from-amber-500 to-yellow-600 text-black font-bold py-2.5 rounded-lg mt-2 text-sm cursor-pointer">XÁC NHẬN</button>
                         </form>
                     </div>
                 </div>
             )}
 
-            <main className="flex-1 max-w-[98vw] lg:max-w-[95vw] w-full mx-auto p-3 sm:p-5 md:p-8 flex flex-col justify-center my-auto">
-                {/* TAB BXH & TOUR */}
+            <main className="flex-1 max-w-[98vw] w-full mx-auto p-2 sm:p-4 md:p-6 flex flex-col justify-center my-auto">
                 {activeView === 'combined-dashboard' && (
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start w-full">
-                        {/* BÊN TRÁI: HIỂN THỊ TINH GỌN THÔNG TIN TOUR */}
-                        <div className="lg:col-span-5 space-y-5">
-                            <div className="gold-border-box bg-black/90 backdrop-blur-md rounded-3xl p-6 shadow-2xl space-y-5 border border-gold/30">
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start w-full">
+                        <div className="lg:col-span-5 space-y-4">
+                            <div className="gold-border-box bg-black/90 backdrop-blur-md rounded-3xl p-5 shadow-2xl space-y-4 border border-gold/30">
                                 <div className="flex items-center justify-between border-b border-gold/30 pb-3">
-                                    <div className="flex items-center gap-2.5">
-                                        <i className="fa-solid fa-layer-group text-amber-400 text-xl"></i>
-                                        <h3 className="font-cinzel text-lg sm:text-xl font-bold text-gold-bright tracking-wider">THÔNG TIN TOUR</h3>
+                                    <div className="flex items-center gap-2">
+                                        <i className="fa-solid fa-layer-group text-amber-400 text-lg"></i>
+                                        <h3 className="font-cinzel text-lg font-bold text-gold-bright tracking-wider">THÔNG TIN TOUR</h3>
                                     </div>
-                                    <div className="flex items-center gap-1.5 overflow-x-auto py-1">
+                                    <div className="flex items-center gap-1 overflow-x-auto">
                                         {tournaments.map(t => (
-                                            <button
-                                                key={t.id}
-                                                onClick={() => handlePublicViewTourClick(t.id)}
-                                                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                                                    currentPublicDisplayId === t.id 
-                                                        ? 'bg-amber-500 text-black font-black shadow-md' 
-                                                        : 'bg-gray-900 text-gray-300 border border-gray-800 hover:border-gold/50'
-                                                }`}
-                                            >
-                                                <span className={`w-2.5 h-2.5 rounded-full ${t.gameStats.isFinished ? 'bg-gray-500' : (t.gameStats.isPaused ? 'bg-red-500' : 'bg-emerald-400')}`}></span>
+                                            <button key={t.id} onClick={() => setSelectedTourId(t.id)} className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer ${selectedTourId === t.id ? 'bg-amber-500 text-black font-black shadow' : 'bg-gray-900 text-gray-300 border border-gray-800'}`}>
+                                                <span className={`w-2 h-2 rounded-full ${t.gameStats.isFinished ? 'bg-gray-500' : (t.gameStats.isPaused ? 'bg-red-500' : 'bg-emerald-400')}`}></span>
                                                 {t.config.name}
                                             </button>
                                         ))}
                                     </div>
                                 </div>
-
-                                <div className="space-y-4">
-                                    <div className="text-center bg-black/60 p-5 rounded-2xl border border-gold/20 shadow-inner">
-                                        <div className="text-2xl sm:text-3xl font-black font-cinzel text-amber-300 mb-1">{activePublicTour.config.name}</div>
-                                        <div className="text-xs sm:text-sm text-gray-400">{activePublicTour.config.clubName} • {activePublicTour.config.subTitle}</div>
+                                <div className="space-y-3">
+                                    <div className="text-center bg-black/60 p-4 rounded-2xl border border-gold/20">
+                                        <div className="text-2xl font-black font-cinzel text-amber-300 mb-1">{activeTour.config.name}</div>
+                                        <div className="text-xs text-gray-400">{activeTour.config.clubName} • {activeTour.config.subTitle}</div>
                                     </div>
-
-                                    <div className="grid grid-cols-2 gap-3 text-xs sm:text-sm">
-                                        <div className="bg-gray-900/90 p-3.5 rounded-2xl border border-gray-800">
-                                            <span className="text-gray-400 block mb-1 font-semibold">BUY-IN</span>
-                                            <span className="text-white font-extrabold text-lg">{activePublicTour.config.buyIn}</span>
-                                        </div>
-                                        <div className="bg-gray-900/90 p-3.5 rounded-2xl border border-gray-800">
-                                            <span className="text-gray-400 block mb-1 font-semibold">REBUY</span>
-                                            <span className="text-white font-extrabold text-lg">{activePublicTour.config.rebuyPrice}</span>
-                                        </div>
-                                        <div className="bg-gray-900/90 p-3.5 rounded-2xl border border-gray-800">
-                                            <span className="text-gray-400 block mb-1 font-semibold">STARTING STACK</span>
-                                            <span className="text-amber-400 font-extrabold text-lg">{activePublicTour.config.startingStack.toLocaleString()}</span>
-                                        </div>
-                                        <div className="bg-gray-900/90 p-3.5 rounded-2xl border border-gray-800">
-                                            <span className="text-gray-400 block mb-1 font-semibold">REG END</span>
-                                            <span className="text-white font-extrabold text-lg">Level {activePublicTour.config.regEndLevel}</span>
-                                        </div>
+                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                        <div className="bg-gray-900/80 p-3 rounded-xl border border-gray-800"><span className="text-gray-400 block mb-0.5 font-semibold">BUY-IN</span><span className="text-white font-extrabold text-base">{activeTour.config.buyIn}</span></div>
+                                        <div className="bg-gray-900/80 p-3 rounded-xl border border-gray-800"><span className="text-gray-400 block mb-0.5 font-semibold">REBUY</span><span className="text-white font-extrabold text-base">{activeTour.config.rebuyPrice}</span></div>
+                                        <div className="bg-gray-900/80 p-3 rounded-xl border border-gray-800"><span className="text-gray-400 block mb-0.5 font-semibold">STARTING STACK</span><span className="text-amber-400 font-extrabold text-base">{activeTour.config.startingStack.toLocaleString()}</span></div>
+                                        <div className="bg-gray-900/80 p-3 rounded-xl border border-gray-800"><span className="text-gray-400 block mb-0.5 font-semibold">REG END</span><span className="text-white font-extrabold text-base">Level {activeTour.config.regEndLevel}</span></div>
                                     </div>
-
-                                    {/* KHU VỰC ĐỒNG HỒ ĐẾM NGƯỢC KHAI MẠC REALTIME */}
-                                    {activePublicTour.gameStats.isFinished ? (
+                                    {activeTour.gameStats.isFinished ? (
                                         <div className="bg-gradient-to-b from-gray-900 to-black/90 border border-gray-700 rounded-2xl p-4 text-center">
-                                            <div className="text-gold-bright font-black text-sm uppercase tracking-wider">🏆 TOUR ĐÃ KẾT THÚC</div>
-                                            <div className="text-[11px] text-gray-400 mt-1">Cảm ơn quý hội viên đã tham gia giải đấu</div>
+                                            <div className="text-gold-bright font-black text-sm uppercase">🏆 TOUR ĐÃ KẾT THÚC</div>
                                         </div>
                                     ) : preTourCountdownSecs > 0 ? (
-                                        <div className="bg-gradient-to-b from-amber-950/70 to-black/90 border border-gold/40 rounded-2xl p-4 text-center shadow-lg">
-                                            <div className="text-amber-400 font-bold text-xs uppercase mb-1 flex items-center justify-center gap-1.5">
-                                                <i className="fa-solid fa-clock animate-spin"></i> KHAI MẠC: {activePublicTour.config.scheduledStartDate || 'Hôm nay'} ({activePublicTour.config.scheduledStartTime || '13:00'})
-                                            </div>
-                                            <div className="font-timer text-3xl sm:text-4xl font-black text-white py-1 text-gold-bright drop-shadow">
-                                                {formatTimeHHMMSS(preTourCountdownSecs)}
-                                            </div>
-                                            <div className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">ĐỒNG HỒ ĐẾM NGƯỢC GIỜ KHAI MẠC</div>
+                                        <div className="bg-gradient-to-b from-amber-950/70 to-black/90 border border-gold/40 rounded-2xl p-4 text-center">
+                                            <div className="text-amber-400 font-bold text-xs uppercase mb-1">KHAI MẠC: {activeTour.config.scheduledStartDate} ({activeTour.config.scheduledStartTime})</div>
+                                            <div className="font-timer text-3xl font-black text-gold-bright">{formatTimeHHMMSS ? formatTimeHHMMSS(preTourCountdownSecs) : preTourCountdownSecs}</div>
                                         </div>
                                     ) : (
-                                        <div className="bg-gradient-to-b from-emerald-950/80 to-black/90 border border-emerald-500/50 rounded-2xl p-4 text-center shadow-lg">
-                                            <div className="text-emerald-400 font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2">
-                                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span> 🟢 TOUR ĐANG DIỄN RA
-                                            </div>
-                                            <div className="text-[11px] text-gray-300 mt-1 font-medium">Giải đấu đã chính thức khởi tranh</div>
+                                        <div className="bg-gradient-to-b from-emerald-950/80 to-black/90 border border-emerald-500/50 rounded-2xl p-4 text-center">
+                                            <div className="text-emerald-400 font-black text-sm uppercase">🟢 TOUR ĐANG DIỄN RA</div>
                                         </div>
                                     )}
                                 </div>
                             </div>
                         </div>
 
-                        {/* BÊN PHẢI: BẢNG XẾP HẠNG ELO HỘI VIÊN */}
-                        <div className="lg:col-span-7 space-y-5">
-                            <div className="gold-border-box bg-black/85 backdrop-blur-md rounded-3xl p-5 sm:p-6 shadow-2xl flex flex-col justify-between">
+                        <div className="lg:col-span-7 space-y-4">
+                            <div className="gold-border-box bg-black/85 backdrop-blur-md rounded-3xl p-4 sm:p-5 shadow-2xl flex flex-col justify-between">
                                 <div>
-                                    <div className="flex justify-between items-center border-b border-gold/30 pb-3 mb-4">
-                                        <div className="flex items-center gap-2.5">
-                                            <i className="fa-solid fa-trophy text-amber-400 text-xl"></i>
-                                            <h3 className="font-cinzel text-lg sm:text-xl font-bold text-gold-bright tracking-wider">
-                                                BẢNG XẾP HẠNG ELO HỘI VIÊN
-                                            </h3>
-                                        </div>
-                                        <span className="text-xs text-gray-300 font-bold bg-amber-950/80 border border-amber-500/40 px-3 py-1 rounded-xl">
-                                            TOP {activePublicTour.config.maxLeaderboardTop || 10}
-                                        </span>
+                                    <div className="flex justify-between items-center border-b border-gold/30 pb-3 mb-3">
+                                        <div className="flex items-center gap-2"><i className="fa-solid fa-trophy text-amber-400 text-lg"></i><h3 className="font-cinzel text-lg font-bold text-gold-bright tracking-wider">BẢNG XẾP HẠNG ELO HỘI VIÊN</h3></div>
+                                        <span className="text-[10px] text-gray-400 font-bold bg-amber-950/60 border border-amber-500/40 px-2 py-0.5 rounded">TOP 10</span>
                                     </div>
-
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-left text-xs sm:text-sm">
                                             <thead>
-                                                <tr className="border-b border-gray-800 text-gray-400 text-[11px] uppercase tracking-wider">
-                                                    <th className="py-2.5 px-2 text-center w-12">HẠNG</th>
-                                                    <th className="py-2.5 px-3">TÊN HỘI VIÊN</th>
-                                                    <th className="py-2.5 px-3 text-right">THÁNG 11</th>
-                                                    <th className="py-2.5 px-3 text-right">QUÝ 4 (Q4)</th>
+                                                <tr className="border-b border-gray-800 text-gray-400 text-[11px] uppercase">
+                                                    <th className="py-2 px-1 text-center w-12">HẠNG</th>
+                                                    <th className="py-2 px-2">TÊN HỘI VIÊN</th>
+                                                    <th className="py-2 px-2 text-right">THÁNG</th>
+                                                    <th className="py-2 px-2 text-right">QUÝ 4</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-gray-800/60 font-medium">
-                                                {mockLeaderboardData.slice(0, activePublicTour.config.maxLeaderboardTop || 10).map((player) => (
+                                                {mockLeaderboardData.map((player) => (
                                                     <tr key={player.rank} className="hover:bg-amber-500/10 transition">
-                                                        <td className="py-3 px-2 text-center font-bold">
-                                                            {player.rank === 1 && <span className="text-amber-400 text-base font-black">🥇 1</span>}
-                                                            {player.rank === 2 && <span className="text-gray-300 text-base font-black">🥈 2</span>}
-                                                            {player.rank === 3 && <span className="text-amber-600 text-base font-black">🥉 3</span>}
-                                                            {player.rank > 3 && <span className="text-gray-400">{player.rank}</span>}
-                                                        </td>
-                                                        <td className="py-3 px-3 font-semibold text-white">
-                                                            {player.name}
-                                                        </td>
-                                                        <td className="py-3 px-3 text-right font-bold text-amber-300">
-                                                            {player.monthElo.toLocaleString()}
-                                                        </td>
-                                                        <td className="py-3 px-3 text-right font-extrabold text-gold-bright">
-                                                            {player.quarterElo.toLocaleString()}
-                                                        </td>
+                                                        <td className="py-2.5 px-1 text-center font-bold text-amber-400">{player.rank}</td>
+                                                        <td className="py-2.5 px-2 font-semibold text-white">{player.name}</td>
+                                                        <td className="py-2.5 px-2 text-right font-bold text-amber-300">{player.monthElo.toLocaleString()}</td>
+                                                        <td className="py-2.5 px-2 text-right font-extrabold text-gold-bright">{player.quarterElo.toLocaleString()}</td>
                                                     </tr>
                                                 ))}
                                             </tbody>
                                         </table>
                                     </div>
                                 </div>
-
-                                <div className="mt-5 pt-4 border-t border-gold/30">
-                                    <form onSubmit={handleSearchPhone} className="space-y-2.5">
-                                        <label className="block text-xs sm:text-sm font-bold text-gray-200 uppercase tracking-wider">
-                                            🔍 Tra Cứu Hạng Elo Bằng 4 Số Cuối SĐT:
-                                        </label>
-                                        <div className="flex gap-2.5">
-                                            <input 
-                                                type="text" 
-                                                value={searchPhoneInput}
-                                                onChange={(e) => setSearchPhoneInput(e.target.value)}
-                                                placeholder="Nhập 4 số cuối SĐT (vd: 1234)..."
-                                                className="flex-1 bg-gray-900 border border-gray-700 rounded-xl px-4 py-2.5 text-white font-bold text-xs sm:text-sm focus:border-gold outline-none"
-                                            />
-                                            <button 
-                                                type="submit"
-                                                className="bg-amber-500 hover:bg-amber-400 text-black font-extrabold px-5 py-2.5 rounded-xl text-xs sm:text-sm shadow-md transition cursor-pointer"
-                                            >
-                                                Tra Cứu
-                                            </button>
-                                        </div>
-                                    </form>
-
-                                    {searchResultPlayer && (
-                                        <div className="mt-3.5 bg-amber-950/40 border border-amber-500/50 rounded-2xl p-3.5 text-xs sm:text-sm flex justify-between items-center shadow-md">
-                                            <div>
-                                                <div className="font-bold text-white text-base">{searchResultPlayer.name}</div>
-                                                <div className="text-gray-400 text-xs mt-0.5">Hạng Tháng: <span className="text-amber-400 font-bold">#{searchResultPlayer.rank}</span></div>
-                                            </div>
-                                            <div className="text-right">
-                                                <div className="text-amber-300 font-bold">{searchResultPlayer.monthElo} ELO (Tháng)</div>
-                                                <div className="text-gold-bright font-black text-base">{searchResultPlayer.quarterElo} ELO (Quý)</div>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
                             </div>
                         </div>
                     </div>
                 )}
 
-                {/* MỤC 2: ĐẶT ĐƠN POS THU NGÂN & QUẢN LÝ KHÁCH HÀNG */}
                 {activeView === 'pos-orders' && (
-                    <div className="space-y-6 max-w-6xl mx-auto w-full">
-                        <div className="gold-border-box bg-black/85 backdrop-blur-md rounded-3xl p-6 sm:p-8 shadow-2xl border border-gold/30">
-                            <div className="flex flex-wrap justify-between items-center border-b border-gold/30 pb-4 mb-5 gap-3">
-                                <div className="flex items-center gap-3">
-                                    <i className="fa-solid fa-cash-register text-amber-400 text-2xl"></i>
-                                    <h2 className="font-cinzel text-xl sm:text-2xl font-bold text-gold-bright">MODULE POS THU NGÂN & ĐẶT ĐƠN</h2>
-                                </div>
-                                <div className="text-xs sm:text-sm text-amber-300 bg-amber-950/60 border border-amber-500/40 px-3.5 py-1.5 rounded-xl font-bold">
-                                    Tour Hiện Tại: <span className="text-white">{activePublicTour.config.name}</span>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                                <div className="lg:col-span-7 space-y-5">
-                                    <div className="bg-gray-900/90 p-5 rounded-2xl border border-gray-800 space-y-3.5">
-                                        <div className="text-xs sm:text-sm font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
-                                            <i className="fa-solid fa-user-tag"></i> 1. Thông Tin Khách Hàng / Hội Viên
-                                        </div>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                            <div>
-                                                <label className="block text-xs text-gray-400 font-semibold mb-1.5">Tên Khách Hàng</label>
-                                                <input 
-                                                    type="text" 
-                                                    placeholder="Nhập tên hội viên..." 
-                                                    className="w-full bg-black border border-gray-700 rounded-xl px-4 py-3 text-white font-bold text-sm focus:border-gold outline-none" 
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs text-gray-400 font-semibold mb-1.5">Số Điện Thoại (4 số cuối)</label>
-                                                <input 
-                                                    type="text" 
-                                                    placeholder="vd: 1234" 
-                                                    className="w-full bg-black border border-gray-700 rounded-xl px-4 py-3 text-white font-bold text-sm focus:border-gold outline-none" 
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="bg-gray-900/90 p-5 rounded-2xl border border-gray-800 space-y-3.5">
-                                        <div className="text-xs sm:text-sm font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
-                                            <i className="fa-solid fa-box-archive"></i> 2. Chọn Gói Đăng Ký / Dịch Vụ
-                                        </div>
-                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                            <button 
-                                                type="button" 
-                                                onClick={() => handleStatChange('buyIns', 1)}
-                                                className="p-3.5 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 rounded-2xl text-left transition cursor-pointer"
-                                            >
-                                                <div className="text-xs font-bold text-amber-300">BUY-IN TOUR</div>
-                                                <div className="text-base font-black text-white mt-0.5">{activePublicTour.config.buyIn} TOKEN</div>
-                                                <div className="text-[11px] text-gray-400 mt-1">+1 Entry Tour</div>
-                                            </button>
-                                            <button 
-                                                type="button" 
-                                                onClick={() => handleStatChange('rebuys', 1)}
-                                                className="p-3.5 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 rounded-2xl text-left transition cursor-pointer"
-                                            >
-                                                <div className="text-xs font-bold text-emerald-300">RE-BUY TOUR</div>
-                                                <div className="text-base font-black text-white mt-0.5">{activePublicTour.config.rebuyPrice} TOKEN</div>
-                                                <div className="text-[11px] text-gray-400 mt-1">+1 Rebuy Stack</div>
-                                            </button>
-                                            <button 
-                                                type="button" 
-                                                className="p-3.5 bg-sky-500/20 hover:bg-sky-500/30 border border-sky-500/50 rounded-2xl text-left transition cursor-pointer"
-                                            >
-                                                <div className="text-xs font-bold text-sky-300">NƯỚC / ĐỒ ĂN</div>
-                                                <div className="text-base font-black text-white mt-0.5">MENU DỊCH VỤ</div>
-                                                <div className="text-[11px] text-gray-400 mt-1">Gộp vào Bill</div>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="lg:col-span-5 space-y-4">
-                                    <div className="bg-black/95 p-5 rounded-2xl border border-gold/40 flex flex-col justify-between min-h-[320px] shadow-xl">
-                                        <div>
-                                            <div className="flex justify-between items-center border-b border-gray-800 pb-2.5 mb-3.5">
-                                                <span className="text-xs sm:text-sm font-bold text-gold-bright uppercase tracking-wider">🛒 ĐƠN HÀNG CHỜ THỜI GIAN THỰC</span>
-                                                <span className="text-[11px] text-gray-400">SNAP CALL POS</span>
-                                            </div>
-                                            <div className="space-y-2.5 text-xs sm:text-sm">
-                                                <div className="flex justify-between items-center bg-gray-900/90 p-3 rounded-xl border border-gray-800">
-                                                    <span className="text-gray-200 font-semibold">Buy-in {activePublicTour.config.name}</span>
-                                                    <span className="font-bold text-amber-300">{activePublicTour.config.buyIn} TOKEN</span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="pt-4 border-t border-gray-800 space-y-4">
-                                            <div className="flex justify-between items-center text-sm sm:text-base font-black">
-                                                <span className="text-gray-300">TỔNG CỘNG:</span>
-                                                <span className="text-gold-bright text-xl">{activePublicTour.config.buyIn} TOKEN</span>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-3">
-                                                <button 
-                                                    type="button" 
-                                                    onClick={() => alert("Đã lưu đơn vào giỏ hàng gộp Bill!")}
-                                                    className="py-3 px-3 rounded-xl bg-gray-800 hover:bg-gray-700 text-amber-300 font-bold text-xs sm:text-sm border border-amber-500/30 transition cursor-pointer"
-                                                >
-                                                    GỘP BILL SAU
-                                                </button>
-                                                <button 
-                                                    type="button" 
-                                                    onClick={() => alert("Thanh toán thành công & Đã cập nhật vào Tour!")}
-                                                    className="py-3 px-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-extrabold text-xs sm:text-sm shadow-lg transition cursor-pointer"
-                                                >
-                                                    THANH TOÁN NGAY
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                    <div className="space-y-5 max-w-6xl mx-auto w-full">
+                        <div className="gold-border-box bg-black/85 backdrop-blur-md rounded-3xl p-5 shadow-2xl border border-gold/30 text-center py-16">
+                            <h2 className="font-cinzel text-2xl font-bold text-gold-bright mb-2">MODULE POS THU NGÂN & ĐẶT ĐƠN</h2>
+                            <p className="text-gray-400 text-sm">Hệ thống đang sẵn sàng tích hợp giỏ hàng và thanh toán gộp Bill.</p>
                         </div>
                     </div>
                 )}
 
-                {/* MỤC 3: TOUR VIEW */}
                 {activeView === 'player-tv' && (
                     <div className="w-full space-y-6">
-                        {tournaments.length > 1 ? (
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                {tournaments.map(t => (
-                                    <TournamentTVCard key={t.id} tour={t} openSinglePopout={openSinglePopoutWindow} />
-                                ))}
-                            </div>
-                        ) : (
-                            <TournamentTVCard tour={activePublicTour} openSinglePopout={openSinglePopoutWindow} />
-                        )}
+                        <TournamentTVCard tour={activeTour} openSinglePopout={openSinglePopoutWindow} />
                     </div>
                 )}
 
-                {/* MỤC 4: ADMIN SETUP */}
                 {activeView === 'admin' && (
                     <div className="space-y-6 w-full">
-                        <div className="bg-gradient-to-r from-amber-950/40 via-black to-amber-950/40 border border-gold/40 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 backdrop-blur-md shadow-xl">
-                            <div className="flex items-center space-x-2.5 overflow-x-auto py-1">
-                                <span className="text-xs sm:text-sm text-gold-bright uppercase font-bold mr-1 flex items-center gap-1.5 shrink-0">
-                                    <i className="fa-solid fa-bookmark text-amber-400"></i> Thư Viện Mẫu Tour:
-                                </span>
-                                {presets.length === 0 ? (
-                                    <span className="text-xs text-gray-500 italic">Chưa có mẫu tour nào được lưu</span>
-                                ) : (
-                                    presets.map(p => (
-                                        <div key={p.id} className="flex items-center gap-1.5 bg-amber-950/80 border border-amber-500/50 rounded-xl px-3 py-1.5 shrink-0">
-                                            <button
-                                                type="button"
-                                                onClick={() => applyPresetToActiveTour(p)}
-                                                className="text-xs font-bold text-amber-200 hover:text-white transition flex items-center gap-1 cursor-pointer"
-                                            >
-                                                <i className="fa-solid fa-bolt text-amber-400"></i> Nạp {p.name}
-                                            </button>
-                                            <button 
-                                                type="button" 
-                                                onClick={() => deletePreset(p.id, p.name)}
-                                                className="text-red-400 hover:text-red-200 text-xs font-black ml-1 px-1.5 py-0.5 rounded-lg hover:bg-black/40 cursor-pointer"
-                                                title="Xóa mẫu tour này"
-                                            >
-                                                ✕
-                                            </button>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-
-                            <button
-                                onClick={saveCurrentTourAsPreset}
-                                className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs sm:text-sm font-bold shadow-md cursor-pointer transition flex items-center gap-2 shrink-0"
-                            >
-                                <i className="fa-solid fa-floppy-disk"></i> Lưu Tour Thành Mẫu
-                            </button>
-                        </div>
-
-                        <div className="bg-black/70 border border-gold/30 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 backdrop-blur-md shadow-xl">
-                            <div className="flex items-center space-x-2.5 overflow-x-auto py-1">
-                                <span className="text-xs sm:text-sm text-gold-bright uppercase font-bold mr-1 shrink-0">Danh Sách Tour SETUP (Admin):</span>
+                        <div className="bg-black/60 border border-gold/30 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2 backdrop-blur-md">
+                            <div className="flex items-center space-x-2 overflow-x-auto py-1">
+                                <span className="text-xs text-gold-bright uppercase font-bold mr-1">Danh Sách Tour:</span>
                                 {tournaments.map(t => (
-                                    <div
-                                        key={t.id}
-                                        onClick={() => handleAdminSelectTourId(t.id)}
-                                        className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-2.5 cursor-pointer select-none border shrink-0 ${
-                                            adminSetupTourId === t.id 
-                                                ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-black border-gold shadow-lg font-black' 
-                                                : 'bg-gray-900/90 text-gray-300 border-gray-700 hover:border-gold/50'
-                                        }`}
-                                    >
-                                        <span className={`w-2.5 h-2.5 rounded-full ${t.gameStats.isFinished ? 'bg-gray-500' : (t.gameStats.isPaused ? 'bg-red-500' : 'bg-emerald-400')}`}></span>
+                                    <div key={t.id} onClick={() => setSelectedTourId(t.id)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 cursor-pointer select-none border ${selectedTourId === t.id ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-black border-gold shadow' : 'bg-gray-900/80 text-gray-300 border-gray-700'}`}>
+                                        <span className={`w-2 h-2 rounded-full ${t.gameStats.isFinished ? 'bg-gray-500' : (t.gameStats.isPaused ? 'bg-red-500' : 'bg-emerald-400')}`}></span>
                                         <span>{t.config.name}</span>
                                         {tournaments.length > 1 && (
-                                            <button 
-                                                type="button"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    removeTournament(t.id);
-                                                }}
-                                                className="hover:bg-black/30 rounded-lg px-1.5 py-0.5 text-xs font-black text-red-400 cursor-pointer"
-                                                title="Xóa tour này"
-                                            >
-                                                ✕
-                                            </button>
+                                            <button type="button" onClick={(e) => { e.stopPropagation(); removeTournament(t.id); }} className="hover:bg-black/20 rounded px-1 text-xs font-black text-red-400">✕</button>
                                         )}
                                     </div>
                                 ))}
                             </div>
-
-                            <div className="flex items-center space-x-2 flex-wrap">
-                                <button 
-                                    onClick={addNewTournament}
-                                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-bold shadow-md cursor-pointer transition"
-                                >
-                                    + Tạo Tour Mới
-                                </button>
-                                <button 
-                                    onClick={saveSingleTourToFile}
-                                    className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-bold shadow-md cursor-pointer transition"
-                                    title="Lưu file JSON cho tour này"
-                                >
-                                    💾 Export Tour
-                                </button>
-                                <label className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs sm:text-sm font-bold shadow-md cursor-pointer transition" title="Nạp file JSON cập nhật tour này">
-                                    📂 Import Tour
-                                    <input type="file" accept=".json" onChange={loadSingleTourFromFile} className="hidden" />
-                                </label>
+                            <div className="flex items-center space-x-2">
+                                <button onClick={addNewTournament} className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow cursor-pointer transition">+ Tạo Tour Mới</button>
                             </div>
                         </div>
 
-                        <div className="bg-black/75 border border-gold/40 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-md">
-                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-5">
-                                <h2 className="text-lg sm:text-xl font-bold text-gold-bright flex items-center gap-2.5 flex-wrap">
-                                    <i className="fa-solid fa-gear"></i> Cấu Hình Tournament (Bản Nháp Setup): <span className="text-white">{draftConfigState.config.name}</span>
-                                </h2>
-                                <button
-                                    onClick={applyDraftChangesToLive}
-                                    className="hidden sm:flex px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-extrabold text-xs sm:text-sm shadow-xl transition cursor-pointer items-center gap-2 shrink-0"
-                                >
-                                    <i className="fa-solid fa-check-double"></i> CẬP NHẬT HỆ THỐNG
-                                </button>
+                        <div className="bg-black/70 border border-gold/40 rounded-2xl p-6 shadow-2xl backdrop-blur-md">
+                            <div className="flex justify-between items-center mb-4">
+                                <h2 className="text-lg font-bold text-gold-bright">Cấu Hình Tournament: <span className="text-white">{draftConfigState.config.name}</span></h2>
+                                <button onClick={applyDraftChangesToLive} className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-extrabold text-xs shadow-lg cursor-pointer">CẬP NHẬT HỆ THỐNG</button>
                             </div>
-
-                            <div className="grid grid-cols-6 gap-1.5 border-b border-gray-800 pb-4 overflow-x-auto">
-                                {['Basics', 'Blinds', 'Payouts', 'Màu & Fonts TV', 'Âm Thanh', 'Review'].map((label, idx) => (
-                                    <button
-                                        key={label}
-                                        type="button"
-                                        onClick={() => setWizardStep(idx + 1)}
-                                        className={`py-2.5 px-2 rounded-xl text-xs sm:text-sm font-bold text-center truncate cursor-pointer transition ${wizardStep === idx + 1 ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-black shadow-lg font-black' : 'text-gray-300 bg-gray-900/80 hover:text-white'}`}
-                                    >
-                                        {idx + 1}. {label}
-                                    </button>
-                                ))}
-                            </div>
-
-                            <div className="pt-6">
-                                {wizardStep === 1 && (
-                                    <div className="space-y-5 text-xs sm:text-sm">
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                            <div>
-                                                <div className="flex justify-between items-center mb-1.5">
-                                                    <label className="text-gray-300 font-semibold">Tên Câu Lạc Bộ (Club Name)</label>
-                                                    <label className="flex items-center gap-1.5 text-xs text-amber-300 font-bold cursor-pointer">
-                                                        <input 
-                                                            type="checkbox" 
-                                                            checked={draftConfigState.config.showClubName !== false} 
-                                                            onChange={(e) => updateDraftConfig('showClubName', e.target.checked)} 
-                                                            className="rounded text-amber-500 focus:ring-0 w-4 h-4" 
-                                                        />
-                                                        Hiện Tên Club
-                                                    </label>
-                                                </div>
-                                                <input type="text" value={draftConfigState.config.clubName} onChange={(e) => updateDraftConfig('clubName', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3.5 text-white font-bold text-base" />
-                                            </div>
-                                            <div>
-                                                <div className="flex justify-between items-center mb-1.5">
-                                                    <label className="text-amber-300 font-semibold">Tiêu Đề Phụ (Sub-Title CLB)</label>
-                                                    <label className="flex items-center gap-1.5 text-xs text-amber-300 font-bold cursor-pointer">
-                                                        <input 
-                                                            type="checkbox" 
-                                                            checked={draftConfigState.config.showSubTitle !== false} 
-                                                            onChange={(e) => updateDraftConfig('showSubTitle', e.target.checked)} 
-                                                            className="rounded text-amber-500 focus:ring-0 w-4 h-4" 
-                                                        />
-                                                        Hiện Sub-Title
-                                                    </label>
-                                                </div>
-                                                <input type="text" value={draftConfigState.config.subTitle || 'BOARD GAME & COFFEE'} onChange={(e) => updateDraftConfig('subTitle', e.target.value)} className="w-full bg-gray-900 border border-amber-500/50 rounded-xl p-3.5 text-amber-300 font-bold text-base" placeholder="vd: BOARD GAME & COFFEE" />
-                                            </div>
-                                            <div>
-                                                <label className="block text-gray-300 mb-1.5 font-semibold">Tên Giải Đấu (Tour Title)</label>
-                                                <input type="text" value={draftConfigState.config.name} onChange={(e) => updateDraftConfig('name', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3.5 text-white font-bold text-base" />
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-amber-950/30 p-5 rounded-2xl border border-amber-500/40">
-                                            <div>
-                                                <label className="block text-amber-300 mb-1.5 font-bold">Ngày Khai Mạc Tour</label>
-                                                <input 
-                                                    type="date" 
-                                                    value={draftConfigState.config.scheduledStartDate || getTodayDateString()} 
-                                                    onChange={(e) => updateDraftConfig('scheduledStartDate', e.target.value)} 
-                                                    className="w-full bg-gray-900 border border-amber-500/50 rounded-xl p-3.5 text-amber-300 font-bold text-base" 
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-amber-300 mb-1.5 font-bold">Giờ Khai Mạc Tour</label>
-                                                <input 
-                                                    type="text" 
-                                                    value={draftConfigState.config.scheduledStartTime || ''} 
-                                                    onChange={(e) => updateDraftConfig('scheduledStartTime', e.target.value)} 
-                                                    placeholder="vd: 13:00 hoặc 19:30" 
-                                                    className="w-full bg-gray-900 border border-amber-500/50 rounded-xl p-3.5 text-amber-300 font-bold text-base" 
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-amber-300 mb-1.5 font-bold">Đếm Ngược Khai Mạc</label>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => updateDraftConfig('enableScheduledTimer', !draftConfigState.config.enableScheduledTimer)}
-                                                    className={`w-full p-3.5 rounded-xl font-bold text-xs transition cursor-pointer ${
-                                                        draftConfigState.config.enableScheduledTimer 
-                                                            ? 'bg-emerald-600 text-white shadow' 
-                                                            : 'bg-gray-800 text-gray-400 border border-gray-700'
-                                                    }`}
-                                                >
-                                                    {draftConfigState.config.enableScheduledTimer ? '✓ BẬT CHỜ GIỜ' : '✕ TẮT (CHẠY NGAY)'}
-                                                </button>
-                                            </div>
-                                            <div>
-                                                <label className="block text-amber-300 mb-1.5 font-bold">Số Top Elo Hiển Thị TV</label>
-                                                <input 
-                                                    type="number" 
-                                                    value={draftConfigState.config.maxLeaderboardTop || 10} 
-                                                    onChange={(e) => updateDraftConfig('maxLeaderboardTop', Number(e.target.value))} 
-                                                    className="w-full bg-gray-900 border border-amber-500/50 rounded-xl p-3.5 text-gold font-bold text-base text-center" 
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 bg-black/40 p-5 rounded-2xl border border-gray-800">
-                                            <div>
-                                                <label className="block text-gray-300 mb-1.5 font-semibold">Buy-in ($)</label>
-                                                <input type="number" value={draftConfigState.config.buyIn} onChange={(e) => updateDraftConfig('buyIn', Number(e.target.value))} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3.5 text-white font-bold text-base" />
-                                            </div>
-                                            <div>
-                                                <label className="block text-gray-300 mb-1.5 font-semibold">Rebuy Price ($)</label>
-                                                <input type="number" value={draftConfigState.config.rebuyPrice} onChange={(e) => updateDraftConfig('rebuyPrice', Number(e.target.value))} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3.5 text-white font-bold text-base" />
-                                            </div>
-                                            <div>
-                                                <label className="block text-gray-300 mb-1.5 font-semibold">Starting Stack</label>
-                                                <input type="number" value={draftConfigState.config.startingStack} onChange={(e) => updateDraftConfig('startingStack', Number(e.target.value))} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3.5 text-white font-bold text-base" />
-                                            </div>
-                                            <div>
-                                                <label className="block text-gray-300 mb-1.5 font-semibold">Max Players/Table</label>
-                                                <input type="number" value={draftConfigState.config.maxPlayersPerTable} onChange={(e) => updateDraftConfig('maxPlayersPerTable', Number(e.target.value))} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3.5 text-gold font-bold text-base" />
-                                            </div>
-                                            <div>
-                                                <label className="block text-gray-300 mb-1.5 font-semibold">Reg End Level</label>
-                                                <input type="number" value={draftConfigState.config.regEndLevel} onChange={(e) => updateDraftConfig('regEndLevel', Number(e.target.value))} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3.5 text-amber-400 font-bold text-base" />
-                                            </div>
-                                        </div>
+                            <div className="space-y-4 text-xs sm:text-sm">
+                                <div>
+                                    <label className="block text-gray-400 mb-1 font-semibold">Tên Giải Đấu</label>
+                                    <input type="text" value={draftConfigState.config.name} onChange={(e) => updateDraftConfig('name', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white font-bold text-base" />
+                                </div>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                    <div>
+                                        <label className="block text-gray-400 mb-1 font-semibold">Buy-in</label>
+                                        <input type="number" value={draftConfigState.config.buyIn} onChange={(e) => updateDraftConfig('buyIn', Number(e.target.value))} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white font-bold" />
                                     </div>
-                                )}
-
-                                {wizardStep === 2 && (
-                                    <div className="space-y-4">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-xs sm:text-sm text-gold-bright uppercase font-bold">Cấu trúc Level & Break Time (Nhấn Giữ ☰ Kéo Thả Đổi Vị Trí)</span>
-                                            <div className="space-x-2">
-                                                <button onClick={() => addBlindLevelDraft('level')} className="bg-amber-500 hover:bg-amber-400 text-black px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold cursor-pointer transition shadow-md">+ Level (Tự Tính Chuẩn Pro)</button>
-                                                <button onClick={() => addBlindLevelDraft('break')} className="bg-gray-800 hover:bg-gray-700 text-gold border border-gold/30 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold cursor-pointer transition shadow-md">+ Break Time</button>
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
-                                            {(() => {
-                                                let runningLevelCount = 0;
-                                                return draftConfigState.blinds.map((b, idx) => {
-                                                    const isLevel = b.type === 'level';
-                                                    if (isLevel) runningLevelCount++;
-                                                    const displayLvlNum = runningLevelCount;
-
-                                                    return (
-                                                        <div 
-                                                            key={b.id} 
-                                                            draggable
-                                                            onDragStart={(e) => handleDragStart(e, idx)}
-                                                            onDragOver={(e) => handleDragOver(e, idx)}
-                                                            onDragEnd={handleDragEnd}
-                                                            className={`bg-black/60 border p-3 rounded-2xl flex items-center justify-between text-xs sm:text-sm gap-3 transition ${draggedBlindIdx === idx ? 'border-amber-400 bg-amber-950/40 opacity-70' : 'border-gray-800 hover:border-gray-700'}`}
-                                                        >
-                                                            <div className="cursor-grab active:cursor-grabbing text-gray-500 hover:text-amber-400 px-1.5 py-2" title="Nhấn giữ để kéo thả xếp lại">
-                                                                <i className="fa-solid fa-bars text-base"></i>
-                                                            </div>
-                                                            {isLevel ? (
-                                                                <>
-                                                                    <span className="font-bold text-gold-bright w-16 text-base font-cinzel">Lvl {displayLvlNum}</span>
-                                                                    <div className="flex gap-3 items-center flex-1 justify-around">
-                                                                        <div><span className="text-[10px] text-gray-400 block mb-0.5">SB</span><input type="number" value={b.sb} onChange={(e)=> updateBlindFieldDraft(b.id, 'sb', e.target.value)} className="w-24 bg-gray-900 border border-gray-700 rounded-xl p-2 text-center text-white font-bold"/></div>
-                                                                        <div><span className="text-[10px] text-gray-400 block mb-0.5">BB</span><input type="number" value={b.bb} onChange={(e)=> updateBlindFieldDraft(b.id, 'bb', e.target.value)} className="w-24 bg-gray-900 border border-gray-700 rounded-xl p-2 text-center text-white font-bold"/></div>
-                                                                        <div><span className="text-[10px] text-gray-400 block mb-0.5">Ante</span><input type="number" value={b.ante} onChange={(e)=> updateBlindFieldDraft(b.id, 'ante', e.target.value)} className="w-24 bg-gray-900 border border-gray-700 rounded-xl p-2 text-center text-white font-bold"/></div>
-                                                                        <div><span className="text-[10px] text-amber-300 font-bold block mb-0.5">Phút (Time)</span><input type="number" value={b.length} onChange={(e)=> updateBlindFieldDraft(b.id, 'length', e.target.value)} className="w-24 bg-gray-900 border border-amber-500/50 rounded-xl p-2 text-center text-amber-300 font-bold"/></div>
-                                                                    </div>
-                                                                </>
-                                                            ) : (
-                                                                <div className="flex-1 flex flex-col space-y-2 bg-gray-900/80 p-3 rounded-xl border border-gray-800">
-                                                                    <div className="flex items-center justify-between">
-                                                                        <span className="font-bold text-cyan-400 text-xs sm:text-sm">☕ BREAK TIME</span>
-                                                                        <label className="flex items-center gap-2 cursor-pointer">
-                                                                            <input type="checkbox" checked={!!b.isChipRace} onChange={(e)=> updateBlindFieldDraft(b.id, 'isChipRace', e.target.checked)} className="rounded text-amber-500 focus:ring-0 w-4 h-4" />
-                                                                            <span className="text-xs text-amber-300 font-bold">Chip race</span>
-                                                                        </label>
-                                                                    </div>
-                                                                    <div className="flex items-center gap-3">
-                                                                        <div className="flex-1">
-                                                                            <span className="text-[10px] text-gray-400 block mb-0.5">Break title</span>
-                                                                            <input type="text" value={b.title || ''} placeholder="vd: 1st" onChange={(e)=> updateBlindFieldDraft(b.id, 'title', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-white text-xs sm:text-sm"/>
-                                                                        </div>
-                                                                        <div>
-                                                                            <span className="text-[10px] text-amber-300 font-bold block mb-0.5">Phút (Time)</span>
-                                                                            <input type="number" value={b.length} onChange={(e)=> updateBlindFieldDraft(b.id, 'length', e.target.value)} className="w-24 bg-gray-900 border border-amber-500/50 rounded-xl p-2 text-center text-amber-300 font-bold text-xs sm:text-sm"/>
-                                                                        </div>
-                                                                    </div>
-                                                                    {b.isChipRace && (
-                                                                        <div>
-                                                                            <span className="text-[10px] text-amber-400 font-bold block mb-0.5">Chip race title</span>
-                                                                            <input type="text" value={b.chipRaceTitle || ''} placeholder="vd: 100, 500" onChange={(e)=> updateBlindFieldDraft(b.id, 'chipRaceTitle', e.target.value)} className="w-full bg-gray-900 border border-amber-500/40 rounded-xl px-3 py-2 text-amber-300 font-bold text-xs sm:text-sm"/>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            )}
-                                                            <button onClick={() => removeBlindDraft(b.id)} className="text-red-400 hover:text-red-300 font-bold px-3 text-lg cursor-pointer">✕</button>
-                                                        </div>
-                                                    );
-                                                });
-                                            })()}
-                                        </div>
+                                    <div>
+                                        <label className="block text-gray-400 mb-1 font-semibold">Rebuy Price</label>
+                                        <input type="number" value={draftConfigState.config.rebuyPrice} onChange={(e) => updateDraftConfig('rebuyPrice', Number(e.target.value))} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white font-bold" />
                                     </div>
-                                )}
-
-                                {wizardStep === 3 && (
-                                    <div className="space-y-4 text-xs sm:text-sm">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-gold-bright font-bold uppercase">Cơ cấu trả thưởng (Payout Points / Token)</span>
-                                            <button onClick={addPayoutItemDraft} className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs sm:text-sm font-bold shadow cursor-pointer">+ Thêm Giải</button>
-                                        </div>
-                                        <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
-                                            {draftConfigState.payouts.map((p, idx) => (
-                                                <div key={idx} className="flex items-center gap-3 bg-black/40 p-3 rounded-2xl border border-gray-800">
-                                                    <input type="text" value={p.place} onChange={(e)=>{const v=e.target.value; const newP = draftConfigState.payouts.map((item,i)=>i===idx?{...item, place:v}:item); setDraftConfigState(prev=>({...prev, payouts: newP}));}} className="w-32 bg-gray-900 border border-gray-700 rounded-xl p-2.5 text-white font-semibold text-center text-base" />
-                                                    <span className="text-gray-400 font-bold">Điểm / Token:</span>
-                                                    <input type="number" step="0.1" value={p.value} onChange={(e)=>{const v=e.target.value === '' ? '' : Number(e.target.value); const newP = draftConfigState.payouts.map((item,i)=>i===idx?{...item, value:v}:item); setDraftConfigState(prev=>({...prev, payouts: newP}));}} className="flex-1 bg-gray-900 border border-gray-700 rounded-xl p-2.5 text-white text-center font-bold text-base" />
-                                                    <button onClick={() => removePayoutItemDraft(idx)} className="text-red-400 hover:text-red-300 font-bold px-3 text-base cursor-pointer">✕</button>
-                                                </div>
-                                            ))}
-                                        </div>
+                                    <div>
+                                        <label className="block text-gray-400 mb-1 font-semibold">Starting Stack</label>
+                                        <input type="number" value={draftConfigState.config.startingStack} onChange={(e) => updateDraftConfig('startingStack', Number(e.target.value))} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white font-bold" />
                                     </div>
-                                )}
-
-                                {wizardStep === 4 && (
-                                    <div className="space-y-6 text-xs sm:text-sm">
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                            <div>
-                                                <label className="block text-gray-300 mb-2 font-semibold">Tùy Chọn Màu Chữ TV (Color Theme)</label>
-                                                <select value={draftConfigState.config.colorTheme || 'tnt-gold'} onChange={(e) => updateDraftConfig('colorTheme', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3.5 text-amber-300 font-bold text-base">
-                                                    {colorThemes.map(theme => (
-                                                        <option key={theme.id} value={theme.id}>{theme.label}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label className="block text-gray-300 mb-2 font-semibold">Kiểu Phông Chữ (Font Style)</label>
-                                                <select value={draftConfigState.config.selectedFont || 'font-montserrat'} onChange={(e) => updateDraftConfig('selectedFont', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3.5 text-gold font-bold text-base">
-                                                    {fontOptions.map(font => (
-                                                        <option key={font.value} value={font.value}>{font.label}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-black/40 p-4 rounded-2xl border border-gray-800">
-                                            <div>
-                                                <label className="block text-amber-300 mb-2 font-bold">Logo CLB Upload</label>
-                                                <div className="flex gap-2.5">
-                                                    <input type="file" accept="image/*" onChange={(e) => handleFileUploadDraft(e, 'logoUrl')} className="flex-1 bg-gray-900 border border-gray-700 rounded-xl p-1.5 text-xs text-gray-300 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-amber-500 file:text-black file:font-bold" />
-                                                    {draftConfigState.config.logoUrl && (
-                                                        <button onClick={() => updateDraftConfig('logoUrl', '')} className="bg-red-600 hover:bg-red-500 text-white font-bold px-3 rounded-xl cursor-pointer" title="Xóa Logo">✕</button>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <label className="block text-amber-300 mb-2 font-bold">QR Code Upload</label>
-                                                <div className="flex gap-2.5">
-                                                    <input type="file" accept="image/*" onChange={(e) => handleFileUploadDraft(e, 'qrCodeUrl')} className="flex-1 bg-gray-900 border border-gray-700 rounded-xl p-1.5 text-xs text-gray-300 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-amber-500 file:text-black file:font-bold" />
-                                                    {draftConfigState.config.qrCodeUrl && (
-                                                        <button onClick={() => updateDraftConfig('qrCodeUrl', '')} className="bg-red-600 hover:bg-red-500 text-white font-bold px-3 rounded-xl cursor-pointer" title="Xóa QR">✕</button>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <label className="block text-amber-300 mb-2 font-bold">Hình Nền Custom</label>
-                                                <div className="flex gap-2.5">
-                                                    <input type="file" accept="image/*" onChange={(e) => handleFileUploadDraft(e, 'bgImageUrl')} className="flex-1 bg-gray-900 border border-gray-700 rounded-xl p-1.5 text-xs text-gray-300 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-amber-500 file:text-black file:font-bold" />
-                                                    {draftConfigState.config.bgImageUrl && (
-                                                        <button onClick={() => updateDraftConfig('bgImageUrl', '')} className="bg-red-600 hover:bg-red-500 text-white font-bold px-3 rounded-xl cursor-pointer" title="Xóa Nền">✕</button>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="pt-3 border-t border-gray-800 space-y-3">
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowFontSizesCollapse(!showFontSizesCollapse)}
-                                                className="w-full py-3 px-4 bg-gray-900/90 hover:bg-gray-800 border border-amber-500/40 rounded-2xl text-amber-300 text-xs sm:text-sm font-bold flex justify-between items-center transition cursor-pointer shadow"
-                                            >
-                                                <span>⚙️ {showFontSizesCollapse ? 'Ẩn Tùy Chỉnh Kích Thước Pixel Font TV' : 'Mở Tùy Chỉnh Kích Thước Pixel Font TV (Nâng Cao)'}</span>
-                                                <span className="text-xs">{showFontSizesCollapse ? '▲ Ẩn' : '▼ Mở'}</span>
-                                            </button>
-
-                                            {showFontSizesCollapse && (
-                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-black/40 p-5 rounded-2xl border border-gray-800 animate-fadeIn">
-                                                    <div>
-                                                        <span className="text-xs text-gray-300 block mb-1.5">Title Snapcall (px)</span>
-                                                        <input type="number" value={fontCustomSizes.brandPx} onChange={(e)=> updateDraftFontSize('brandPx', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-2.5 text-white font-bold text-center" />
-                                                    </div>
-                                                    <div>
-                                                        <span className="text-xs text-gray-300 block mb-1.5">Header Title Tour (px)</span>
-                                                        <input type="number" value={fontCustomSizes.headerPx} onChange={(e)=> updateDraftFontSize('headerPx', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-2.5 text-white font-bold text-center" />
-                                                    </div>
-                                                    <div>
-                                                        <span className="text-xs text-amber-300 font-bold block mb-1.5">Sub-Header CLB (px)</span>
-                                                        <input type="number" value={fontCustomSizes.subHeaderPx} onChange={(e)=> updateDraftFontSize('subHeaderPx', e.target.value)} className="w-full bg-gray-900 border border-amber-500/50 rounded-xl p-2.5 text-amber-300 font-extrabold text-center" />
-                                                    </div>
-                                                    <div>
-                                                        <span className="text-xs text-amber-300 font-bold block mb-1.5">Buyin/Rebuy/Stack (px)</span>
-                                                        <input type="number" value={fontCustomSizes.tourInfoPx || 18} onChange={(e)=> updateDraftFontSize('tourInfoPx', e.target.value)} className="w-full bg-gray-900 border border-amber-500/50 rounded-xl p-2.5 text-amber-300 font-extrabold text-center" />
-                                                    </div>
-                                                    <div>
-                                                        <span className="text-xs text-gray-300 block mb-1.5">Level Badge (px)</span>
-                                                        <input type="number" value={fontCustomSizes.levelBadgePx} onChange={(e)=> updateDraftFontSize('levelBadgePx', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-2.5 text-white font-bold text-center" />
-                                                    </div>
-                                                    <div>
-                                                        <span className="text-xs text-amber-300 font-bold block mb-1.5">Timer Countdown (px)</span>
-                                                        <input type="number" value={fontCustomSizes.timerPx} onChange={(e)=> updateDraftFontSize('timerPx', e.target.value)} className="w-full bg-gray-900 border border-amber-500/50 rounded-xl p-2.5 text-amber-300 font-extrabold text-center" />
-                                                    </div>
-                                                    <div>
-                                                        <span className="text-xs text-gray-300 block mb-1.5">Blinds & Ante (px)</span>
-                                                        <input type="number" value={fontCustomSizes.blindsPx} onChange={(e)=> updateDraftFontSize('blindsPx', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-2.5 text-white font-bold text-center" />
-                                                    </div>
-                                                    <div>
-                                                        <span className="text-xs text-gray-300 block mb-1.5">Next Level (px)</span>
-                                                        <input type="number" value={fontCustomSizes.nextLevelPx} onChange={(e)=> updateDraftFontSize('nextLevelPx', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-2.5 text-white font-bold text-center" />
-                                                    </div>
-                                                    <div>
-                                                        <span className="text-xs text-gray-300 block mb-1.5">Players / Stack (px)</span>
-                                                        <input type="number" value={fontCustomSizes.statsPx} onChange={(e)=> updateDraftFontSize('statsPx', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-2.5 text-white font-bold text-center" />
-                                                    </div>
-                                                    <div>
-                                                        <span className="text-xs text-amber-300 font-bold block mb-1.5">Prize Pool / Payouts (px)</span>
-                                                        <input type="number" value={fontCustomSizes.payoutsPx} onChange={(e)=> updateDraftFontSize('payoutsPx', e.target.value)} className="w-full bg-gray-900 border border-amber-500/50 rounded-xl p-2.5 text-amber-300 font-extrabold text-center" />
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
+                                    <div>
+                                        <label className="block text-gray-400 mb-1 font-semibold">Reg End Level</label>
+                                        <input type="number" value={draftConfigState.config.regEndLevel} onChange={(e) => updateDraftConfig('regEndLevel', Number(e.target.value))} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-amber-400 font-bold" />
                                     </div>
-                                )}
-
-                                {wizardStep === 5 && (
-                                    <div className="space-y-5 text-xs sm:text-sm">
-                                        <div className="text-gold-bright uppercase font-bold text-base font-cinzel">Cài Đặt Sound Âm Thanh Thông Báo Realtime</div>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                            <div className="bg-black/50 p-5 rounded-2xl border border-gray-800 space-y-3.5 shadow-lg">
-                                                <label className="block text-gray-200 font-bold text-sm">🔔 Khi Chuyển Level (Next Level)</label>
-                                                <div className="flex gap-3">
-                                                    <select 
-                                                        value={draftConfigState.soundsConfig.nextLevel} 
-                                                        onChange={(e) => setDraftConfigState(prev => ({...prev, soundsConfig: {...prev.soundsConfig, nextLevel: e.target.value}}))}
-                                                        className="flex-1 bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-amber-300 font-bold text-sm"
-                                                    >
-                                                        <option value="Boxing Bell">Boxing Bell (Chuông Đấu Kê)</option>
-                                                        <option value="Chime Bell">Chime Bell (Chuông Ngân Vang)</option>
-                                                        <option value="Digital Beep">Digital Beeps (Bíp Điện Tử)</option>
-                                                        <option value="Whistle">Whistle (Còi Trọng Tài)</option>
-                                                    </select>
-                                                    <button onClick={() => playSoundEffect(draftConfigState.soundsConfig.nextLevel)} className="bg-amber-500 hover:bg-amber-400 text-black px-4 py-3 rounded-xl font-bold cursor-pointer transition shadow">🔊 Thử</button>
-                                                </div>
-                                            </div>
-
-                                            <div className="bg-black/50 p-5 rounded-2xl border border-gray-800 space-y-3.5 shadow-lg">
-                                                <label className="block text-gray-200 font-bold text-sm">☕ Khi Bắt Đầu Break Time</label>
-                                                <div className="flex gap-3">
-                                                    <select 
-                                                        value={draftConfigState.soundsConfig.breakEnd} 
-                                                        onChange={(e) => setDraftConfigState(prev => ({...prev, soundsConfig: {...prev.soundsConfig, breakEnd: e.target.value}}))}
-                                                        className="flex-1 bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-cyan-300 font-bold text-sm"
-                                                    >
-                                                        <option value="Chime Bell">Chime Bell (Chuông Ngân Vang)</option>
-                                                        <option value="Boxing Bell">Boxing Bell (Chuông Đấu Kê)</option>
-                                                        <option value="Digital Beep">Digital Beeps (Bíp Điện Tử)</option>
-                                                        <option value="Whistle">Whistle (Còi Trọng Tài)</option>
-                                                    </select>
-                                                    <button onClick={() => playSoundEffect(draftConfigState.soundsConfig.breakEnd)} className="bg-cyan-500 hover:bg-cyan-400 text-black px-4 py-3 rounded-xl font-bold cursor-pointer transition shadow">🔊 Thử</button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {wizardStep === 6 && (
-                                    <div className="space-y-4 text-xs sm:text-sm bg-black/50 p-6 rounded-2xl border border-gold/30 shadow-xl">
-                                        <div className="text-gold-bright font-bold text-xl font-cinzel">{draftConfigState.config.name}</div>
-                                        <div className="text-base">Buy-in: <span className="text-white font-bold">{draftConfigState.config.buyIn}</span> | Rebuy: <span className="text-white font-bold">{draftConfigState.config.rebuyPrice}</span> | Starting Stack: <span className="text-amber-400 font-bold">{draftConfigState.config.startingStack.toLocaleString()}</span></div>
-                                    </div>
-                                )}
-
-                                <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 mt-8 pt-5 border-t border-gray-800">
-                                    <button onClick={() => setWizardStep(prev => Math.max(1, prev - 1))} disabled={wizardStep === 1} className="px-6 py-3 rounded-xl bg-gray-800 text-xs sm:text-sm font-semibold disabled:opacity-40 cursor-pointer">Back</button>
-                                    
-                                    <button 
-                                        onClick={applyDraftChangesToLive} 
-                                        className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white text-xs sm:text-sm font-extrabold shadow-xl transition cursor-pointer flex items-center justify-center gap-2"
-                                    >
-                                        <i className="fa-solid fa-floppy-disk"></i> CẬP NHẬT HỆ THỐNG & NẠP TV VIEW
-                                    </button>
-
-                                    <button onClick={() => { if (wizardStep < 6) setWizardStep(prev => prev + 1); else setActiveView('combined-dashboard'); }} className="px-6 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-600 text-black text-xs sm:text-sm font-bold shadow-lg cursor-pointer">
-                                        {wizardStep === 6 ? 'Mở Dashboard Tivi' : 'Tiếp tục'}
-                                    </button>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="bg-black/75 border border-gold/40 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-md space-y-5">
-                            <div className="flex flex-wrap justify-between items-center border-b border-gray-800 pb-4 gap-3">
-                                <h3 className="text-sm sm:text-base font-bold text-gold-bright uppercase flex items-center gap-2.5">
-                                    <i className="fa-solid fa-gamepad"></i> Điều Khiển Trực Tiếp: <span className="text-white">{activeAdminTour.config.name}</span>
-                                </h3>
-                                <div className="flex flex-wrap items-center gap-2.5">
-                                    <button 
-                                        onClick={() => prevStepTour(activeAdminTour.id)}
-                                        className="px-4 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gold border border-gold/30 text-xs sm:text-sm font-bold transition shadow cursor-pointer"
-                                    >
-                                        <i className="fa-solid fa-backward-step"></i> Prev Level
+                        <div className="bg-black/70 border border-gold/40 rounded-2xl p-5 shadow-2xl backdrop-blur-md space-y-4">
+                            <div className="flex flex-wrap justify-between items-center border-b border-gray-800 pb-3 gap-2">
+                                <h3 className="text-sm font-bold text-gold-bright uppercase">Điều Khiển Trực Tiếp: <span className="text-white">{activeTour.config.name}</span></h3>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <button onClick={() => togglePauseTour(activeTour.id)} className={`px-5 py-1.5 rounded text-xs font-black shadow transition cursor-pointer ${activeTour.gameStats.isPaused ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-amber-600 hover:bg-amber-500 text-white'}`}>
+                                        {activeTour.gameStats.isPaused ? '▶ START / RESUME' : '⏸ PAUSE'}
                                     </button>
-                                    <button 
-                                        onClick={() => togglePauseTour(activeAdminTour.id)}
-                                        className={`px-6 py-2 rounded-xl text-xs sm:text-sm font-black shadow-lg transition cursor-pointer ${activeAdminTour.gameStats.isPaused ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-amber-600 hover:bg-amber-500 text-white'}`}
-                                    >
-                                        {activeAdminTour.gameStats.isPaused ? '▶ START / RESUME' : '⏸ PAUSE'}
-                                    </button>
-
-                                    <button 
-                                        onClick={() => finishTour(activeAdminTour.id)}
-                                        className="px-5 py-2 rounded-xl bg-red-900/80 hover:bg-red-800 text-red-200 border border-red-600/50 text-xs sm:text-sm font-bold transition shadow cursor-pointer"
-                                        title="Kết thúc tour này"
-                                    >
-                                        🏁 KẾT THÚC TOUR
-                                    </button>
-
-                                    <button 
-                                        onClick={() => nextStepTour(activeAdminTour.id)}
-                                        className="px-4 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gold border border-gold/30 text-xs sm:text-sm font-bold transition shadow cursor-pointer"
-                                    >
-                                        Next Level <i className="fa-solid fa-forward-step"></i>
-                                    </button>
-
-                                    <div className="flex items-center space-x-1.5 pl-3 border-l border-gray-700">
-                                        <button onClick={() => adjustTimerSeconds(activeAdminTour.id, -60)} className="px-3 py-2 bg-gray-800 hover:bg-red-900/60 text-red-300 rounded-xl text-xs font-bold border border-red-700/40 cursor-pointer">-1m</button>
-                                        <button onClick={() => adjustTimerSeconds(activeAdminTour.id, 60)} className="px-3 py-2 bg-gray-800 hover:bg-emerald-900/60 text-emerald-300 rounded-xl text-xs font-bold border border-emerald-700/40 cursor-pointer">+1m</button>
-                                        <button onClick={() => adjustTimerSeconds(activeAdminTour.id, 300)} className="px-3 py-2 bg-gray-800 hover:bg-emerald-900/60 text-emerald-300 rounded-xl text-xs font-bold border border-emerald-700/40 cursor-pointer">+5m</button>
-                                    </div>
+                                    <button onClick={() => finishTour(activeTour.id)} className="px-4 py-1.5 rounded bg-red-900/80 hover:bg-red-800 text-red-200 border border-red-600/50 text-xs font-bold transition cursor-pointer">🏁 KẾT THÚC</button>
                                 </div>
                             </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-3 gap-3">
                                 {[
-                                    { label: 'Buy-ins / Players', field: 'buyIns' },
+                                    { label: 'Buy-ins', field: 'buyIns' },
                                     { label: 'Eliminated', field: 'eliminated' },
-                                    { label: 'Total Re-buys', field: 'rebuys' }
+                                    { label: 'Re-buys', field: 'rebuys' }
                                 ].map(({ label, field }) => (
-                                    <div key={field} className="bg-black/50 p-4 rounded-2xl border border-gray-800 text-center shadow-md">
-                                        <div className="text-xs text-gray-400 uppercase font-bold mb-1.5">{label}</div>
-                                        <div className="text-3xl font-black text-gold-bright my-1">{activeAdminTour.gameStats[field]}</div>
-                                        <div className="flex justify-center space-x-3 mt-3">
-                                            <button onClick={() => handleStatChange(field, -1)} className="w-10 h-10 bg-gray-800 hover:bg-gray-700 rounded-xl font-extrabold text-base text-white cursor-pointer shadow">-</button>
-                                            <button onClick={() => handleStatChange(field, 1)} className="w-10 h-10 bg-amber-500 hover:bg-amber-400 rounded-xl font-extrabold text-base text-black cursor-pointer shadow">+</button>
+                                    <div key={field} className="bg-black/50 p-3 rounded-xl border border-gray-800 text-center">
+                                        <div className="text-xs text-gray-400 uppercase font-bold mb-1">{label}</div>
+                                        <div className="text-2xl font-black text-gold-bright my-1">{activeTour.gameStats[field]}</div>
+                                        <div className="flex justify-center space-x-2 mt-2">
+                                            <button onClick={() => handleStatChange(field, -1)} className="w-8 h-8 bg-gray-800 hover:bg-gray-700 rounded-lg font-extrabold text-white cursor-pointer">-</button>
+                                            <button onClick={() => handleStatChange(field, 1)} className="w-8 h-8 bg-amber-500 hover:bg-amber-400 rounded-lg font-extrabold text-black cursor-pointer">+</button>
                                         </div>
                                     </div>
                                 ))}
@@ -2500,10 +1267,6 @@ function App() {
                     </div>
                 )}
             </main>
-
-            <footer className="text-center py-3 text-xs text-gray-500 bg-black/80 hidden md:block border-t border-gray-900">
-                Poker Tournament System &copy; 2026 Snap Call Club. All rights reserved.
-            </footer>
         </div>
     );
 }
