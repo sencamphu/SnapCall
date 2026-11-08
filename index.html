@@ -48,18 +48,18 @@ window.initCloudSync = async function(onDataReceived, onSyncStatusChange) {
 
                 if (data && data.data && data.data.tours && data.data.tours.length > 0) {
                     onDataReceived(data.data);
-                } else {
-                    console.log("Supabase Cloud chưa có dữ liệu cấu trúc live_state.");
                 }
             } catch(e) {
                 console.warn("Fetch Error:", e);
             }
         };
 
+        // Tải dữ liệu ban đầu
         await fetchData();
 
+        // Luồng 1: Lắng nghe sự kiện Realtime tức thì qua Supabase Broadcast & Postgres Changes
         window.supabaseChannel = window.supabaseClient
-            .channel('room_poker_live_v30', { config: { broadcast: { self: true } } })
+            .channel('room_poker_live_v31', { config: { broadcast: { self: true } } })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'tournaments' }, payload => {
                 if (payload.new && payload.new.data) {
                     onDataReceived(payload.new.data);
@@ -71,6 +71,11 @@ window.initCloudSync = async function(onDataReceived, onSyncStatusChange) {
                 }
             })
             .subscribe();
+
+        // Luồng 2 (Chuyên gia): Polling ngầm định kỳ 3 giây để đảm bảo 100% thiết bị luôn đồng bộ kể cả khi rớt mạng tạm thời
+        setInterval(() => {
+            fetchData();
+        }, 3000);
 
     } catch (err) {
         console.warn("Lỗi kết nối Supabase Cloud Sync:", err);
@@ -86,6 +91,10 @@ window.saveAppStateToCloud = async (appDataState) => {
             lastUpdated: appDataState.lastUpdated || Date.now()
         };
 
+        // Lưu ngay LocalStorage
+        localStorage.setItem('snapcall_live_app_state', JSON.stringify(payloadData));
+
+        // Broadcast thời gian thực
         if (window.supabaseChannel) {
             window.supabaseChannel.send({
                 type: 'broadcast',
@@ -94,21 +103,16 @@ window.saveAppStateToCloud = async (appDataState) => {
             });
         }
 
+        // Ghi lên Database Supabase
         if (window.supabaseClient) {
-            const { error } = await window.supabaseClient
+            await window.supabaseClient
                 .from('tournaments')
                 .upsert({ 
                     id: 'live_state', 
                     data: payloadData, 
                     updated_at: new Date().toISOString() 
                 }, { onConflict: 'id' });
-
-            if (error) {
-                console.error("Lỗi Upsert Supabase:", error);
-            }
         }
-
-        localStorage.setItem('snapcall_live_app_state', JSON.stringify(payloadData));
     } catch (e) {
         console.warn("Lỗi lưu Supabase Cloud:", e);
     }
@@ -744,6 +748,18 @@ function App() {
         }
     }, [adminSetupTourId, activeAdminTour ? activeAdminTour.id : 0, appState.lastUpdated]);
 
+    // Tự động kiểm tra và gán Tour ID hợp lệ khi danh sách Tour từ Cloud cập nhật
+    useEffect(() => {
+        if (tournaments && tournaments.length > 0) {
+            if (!tournaments.some(t => t.id === adminSetupTourId)) {
+                setAdminSetupTourId(tournaments[0].id);
+            }
+            if (!tournaments.some(t => t.id === publicViewTourId)) {
+                setPublicViewTourId(tournaments[0].id);
+            }
+        }
+    }, [tournaments]);
+
     useEffect(() => {
         if (window.initCloudSync) {
             window.initCloudSync(
@@ -758,8 +774,6 @@ function App() {
                             }
                             return prevState;
                         });
-                        setAdminSetupTourId(currId => cloudState.tours.some(t => t.id === currId) ? currId : cloudState.tours[0].id);
-                        setPublicViewTourId(currId => cloudState.tours.some(t => t.id === currId) ? currId : cloudState.tours[0].id);
                     }
                 },
                 (status) => setIsCloudSynced(status)
