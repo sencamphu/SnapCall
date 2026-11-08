@@ -60,6 +60,9 @@
                 };
                 fetchData();
 
+                // LÊN LỊCH QUÉT ĐỊNH KỲ MỖI 2 GIÂY CHỐNG NGHẼN WEBSOCKET REALTIME
+                setInterval(fetchData, 2000);
+
                 // LẮNG NGHE LỆNH REALTIME TỪ CÁC THIẾT BỊ KHÁC
                 const channel = supabaseClient
                     .channel('room_poker_live', { config: { broadcast: { self: false } } })
@@ -95,7 +98,6 @@
                     window.popoutBroadcastChannel.postMessage({ data: appDataState });
 
                     try {
-                        // Phát Realtime Broadcast đến mọi thiết bị ngay lập tức
                         channel.send({
                             type: 'broadcast',
                             event: 'tour_update',
@@ -107,7 +109,7 @@
                             await supabaseClient
                                 .from('tournaments')
                                 .upsert({ id: 'live_state', data: appDataState, updated_at: new Date(nowTime).toISOString() });
-                        }, 300);
+                        }, 100);
                     } catch (e) {
                         console.warn("Lỗi lưu Supabase Cloud:", e);
                     }
@@ -670,6 +672,7 @@ function App() {
         return () => clearInterval(cleanupInterval);
     }, []);
 
+    // ĐẤY DỮ LIỆU LÊN CLOUD NGAY LẬP TỨC KHI CHỌN TOUR MỚI (0ms DELAY)
     const setSelectedTourId = (newTourId) => {
         userHasModified.current = true;
         setAppState(prev => {
@@ -712,6 +715,7 @@ function App() {
                 window.popoutBroadcastChannel.postMessage({ data: appState });
             }
 
+            // CHỈ GỬI LÊN CLOUD KHI USER CÓ THAO TÁC THỰC TẾ (NÚT BẤM / ĐỔI TOUR / EDIT)
             if (userHasModified.current && window.isFirstCloudSyncDone && !isRemoteUpdating.current && currentStr !== lastLocalString.current) {
                 lastLocalString.current = currentStr;
                 userHasModified.current = false;
@@ -726,10 +730,16 @@ function App() {
 
     const applyDraftChangesToLive = () => {
         userHasModified.current = true;
-        setAppState(prev => ({
-            ...prev,
-            tours: prev.tours.map(t => t.id === selectedTourId ? JSON.parse(JSON.stringify(draftConfigState)) : t)
-        }));
+        setAppState(prev => {
+            const nextState = {
+                ...prev,
+                tours: prev.tours.map(t => t.id === selectedTourId ? JSON.parse(JSON.stringify(draftConfigState)) : t)
+            };
+            if (window.saveTournamentsToCloud) {
+                window.saveTournamentsToCloud(nextState);
+            }
+            return nextState;
+        });
         alert(`Đã CẬP NHẬT thành công cài đặt cho Tour "${draftConfigState.config.name}"!`);
     };
 
@@ -833,7 +843,6 @@ function App() {
                         return tour;
                     }
 
-                    // Tính thời gian thực tế còn lại chính xác từng miligiây dựa vào Target End Timestamp
                     const remainingSecs = Math.max(0, Math.ceil((tour.gameStats.targetEndTime - now) / 1000));
 
                     if (remainingSecs > 0) {
@@ -944,100 +953,124 @@ function App() {
 
     const handleStatChange = (field, delta) => {
         userHasModified.current = true;
-        setAppState(prev => ({
-            ...prev,
-            tours: prev.tours.map(t => {
-                if (t.id === selectedTourId) {
-                    return {
-                        ...t,
-                        gameStats: {
-                            ...t.gameStats,
-                            [field]: Math.max(0, (t.gameStats[field] || 0) + delta)
-                        }
-                    };
-                }
-                return t;
-            })
-        }));
-    };
-
-    const togglePauseTour = (tourId) => {
-        userHasModified.current = true;
-        const now = Date.now();
-        setAppState(prev => ({
-            ...prev,
-            tours: prev.tours.map(t => {
-                if (t.id === tourId) {
-                    const willPause = !t.gameStats.isPaused;
-                    if (willPause) {
-                        return {
-                            ...t,
-                            gameStats: {
-                                ...t.gameStats,
-                                isPaused: true,
-                                targetEndTime: null
-                            }
-                        };
-                    } else {
-                        return {
-                            ...t,
-                            gameStats: {
-                                ...t.gameStats,
-                                isPaused: false,
-                                isFinished: false,
-                                targetEndTime: now + (t.gameStats.secondsLeft * 1000)
-                            }
-                        };
-                    }
-                }
-                return t;
-            })
-        }));
-    };
-
-    const finishTour = (tourId) => {
-        if (window.confirm("Bạn có chắc chắn muốn KẾT THÚC Tour đấu này? Giao diện TV sẽ hiển thị vinh danh kết thúc.")) {
-            userHasModified.current = true;
-            setAppState(prev => ({
+        setAppState(prev => {
+            const nextState = {
                 ...prev,
                 tours: prev.tours.map(t => {
-                    if (t.id === tourId) {
+                    if (t.id === selectedTourId) {
                         return {
                             ...t,
                             gameStats: {
                                 ...t.gameStats,
-                                isPaused: true,
-                                isFinished: true,
-                                targetEndTime: null
+                                [field]: Math.max(0, (t.gameStats[field] || 0) + delta)
                             }
                         };
                     }
                     return t;
                 })
-            }));
+            };
+            if (window.saveTournamentsToCloud) {
+                window.saveTournamentsToCloud(nextState);
+            }
+            return nextState;
+        });
+    };
+
+    const togglePauseTour = (tourId) => {
+        userHasModified.current = true;
+        const now = Date.now();
+        setAppState(prev => {
+            const nextState = {
+                ...prev,
+                tours: prev.tours.map(t => {
+                    if (t.id === tourId) {
+                        const willPause = !t.gameStats.isPaused;
+                        if (willPause) {
+                            return {
+                                ...t,
+                                gameStats: {
+                                    ...t.gameStats,
+                                    isPaused: true,
+                                    targetEndTime: null
+                                }
+                            };
+                        } else {
+                            return {
+                                ...t,
+                                gameStats: {
+                                    ...t.gameStats,
+                                    isPaused: false,
+                                    isFinished: false,
+                                    targetEndTime: now + (t.gameStats.secondsLeft * 1000)
+                                }
+                            };
+                        }
+                    }
+                    return t;
+                })
+            };
+            if (window.saveTournamentsToCloud) {
+                window.saveTournamentsToCloud(nextState);
+            }
+            return nextState;
+        });
+    };
+
+    const finishTour = (tourId) => {
+        if (window.confirm("Bạn có chắc chắn muốn KẾT THÚC Tour đấu này? Giao diện TV sẽ hiển thị vinh danh kết thúc.")) {
+            userHasModified.current = true;
+            setAppState(prev => {
+                const nextState = {
+                    ...prev,
+                    tours: prev.tours.map(t => {
+                        if (t.id === tourId) {
+                            return {
+                                ...t,
+                                gameStats: {
+                                    ...t.gameStats,
+                                    isPaused: true,
+                                    isFinished: true,
+                                    targetEndTime: null
+                                }
+                            };
+                        }
+                        return t;
+                    })
+                };
+                if (window.saveTournamentsToCloud) {
+                    window.saveTournamentsToCloud(nextState);
+                }
+                return nextState;
+            });
         }
     };
 
     const adjustTimerSeconds = (tourId, deltaSeconds) => {
         userHasModified.current = true;
         const now = Date.now();
-        setAppState(prev => ({
-            ...prev,
-            tours: prev.tours.map(t => {
-                if (t.id === tourId) {
-                    const newSecs = Math.max(0, t.gameStats.secondsLeft + deltaSeconds);
-                    return {
-                        ...t,
-                        gameStats: {
-                            ...t.gameStats,
-                            secondsLeft: newSecs,
-                            targetEndTime: t.gameStats.isPaused ? null : now + (newSecs * 1000)
-                        }
-                    };
-                }
-                return t;
-            })
-        }));
+        setAppState(prev => {
+            const nextState = {
+                ...prev,
+                tours: prev.tours.map(t => {
+                    if (t.id === tourId) {
+                        const newSecs = Math.max(0, t.gameStats.secondsLeft + deltaSeconds);
+                        return {
+                            ...t,
+                            gameStats: {
+                                ...t.gameStats,
+                                secondsLeft: newSecs,
+                                targetEndTime: t.gameStats.isPaused ? null : now + (newSecs * 1000)
+                            }
+                        };
+                    }
+                    return t;
+                })
+            };
+            if (window.saveTournamentsToCloud) {
+                window.saveTournamentsToCloud(nextState);
+            }
+            return nextState;
+        });
     };
 
     const addNewTournament = () => {
@@ -1048,7 +1081,13 @@ function App() {
         newTour.gameStats.targetEndTime = null;
 
         isRemoteUpdating.current = false;
-        setAppState(prev => ({ ...prev, tours: [...prev.tours, newTour], selectedTourId: newId }));
+        setAppState(prev => {
+            const nextState = { ...prev, tours: [...prev.tours, newTour], selectedTourId: newId };
+            if (window.saveTournamentsToCloud) {
+                window.saveTournamentsToCloud(nextState);
+            }
+            return nextState;
+        });
     };
 
     const removeTournament = (tourId) => {
@@ -1060,7 +1099,13 @@ function App() {
             userHasModified.current = true;
             isRemoteUpdating.current = false;
             const remaining = tournaments.filter(t => t.id !== tourId);
-            setAppState(prev => ({ ...prev, tours: remaining, selectedTourId: remaining[0].id }));
+            setAppState(prev => {
+                const nextState = { ...prev, tours: remaining, selectedTourId: remaining[0].id };
+                if (window.saveTournamentsToCloud) {
+                    window.saveTournamentsToCloud(nextState);
+                }
+                return nextState;
+            });
         }
     };
 
@@ -1075,10 +1120,16 @@ function App() {
             tourTemplate: JSON.parse(JSON.stringify(activeTour))
         };
 
-        setAppState(prev => ({
-            ...prev,
-            presets: [...(prev.presets || []).filter(p => p.name !== presetName), newPreset]
-        }));
+        setAppState(prev => {
+            const nextState = {
+                ...prev,
+                presets: [...(prev.presets || []).filter(p => p.name !== presetName), newPreset]
+            };
+            if (window.saveTournamentsToCloud) {
+                window.saveTournamentsToCloud(nextState);
+            }
+            return nextState;
+        });
         alert(`Đã lưu mẫu tour "${presetName}" thành công!`);
     };
 
@@ -1090,20 +1141,32 @@ function App() {
             loaded.gameStats.isPaused = true;
             loaded.gameStats.targetEndTime = null;
 
-            setAppState(prev => ({
-                ...prev,
-                tours: prev.tours.map(t => t.id === selectedTourId ? loaded : t)
-            }));
+            setAppState(prev => {
+                const nextState = {
+                    ...prev,
+                    tours: prev.tours.map(t => t.id === selectedTourId ? loaded : t)
+                };
+                if (window.saveTournamentsToCloud) {
+                    window.saveTournamentsToCloud(nextState);
+                }
+                return nextState;
+            });
         }
     };
 
     const deletePreset = (presetId, presetName) => {
         if (window.confirm(`Bạn có chắc chắn muốn XÓA mẫu tour "${presetName}" khỏi thư viện?`)) {
             userHasModified.current = true;
-            setAppState(prev => ({
-                ...prev,
-                presets: (prev.presets || []).filter(p => p.id !== presetId)
-            }));
+            setAppState(prev => {
+                const nextState = {
+                    ...prev,
+                    presets: (prev.presets || []).filter(p => p.id !== presetId)
+                };
+                if (window.saveTournamentsToCloud) {
+                    window.saveTournamentsToCloud(nextState);
+                }
+                return nextState;
+            });
         }
     };
 
@@ -1127,28 +1190,40 @@ function App() {
                     if (parsedData && parsedData.config && parsedData.blinds) {
                         userHasModified.current = true;
                         isRemoteUpdating.current = false;
-                        setAppState(prev => ({
-                            ...prev,
-                            tours: prev.tours.map(t => {
-                                if (t.id === selectedTourId) {
-                                    return {
-                                        ...parsedData,
-                                        id: selectedTourId,
-                                        gameStats: {
-                                            ...parsedData.gameStats,
-                                            isPaused: true,
-                                            targetEndTime: null
-                                        }
-                                    };
-                                }
-                                return t;
-                            })
-                        }));
+                        setAppState(prev => {
+                            const nextState = {
+                                ...prev,
+                                tours: prev.tours.map(t => {
+                                    if (t.id === selectedTourId) {
+                                        return {
+                                            ...parsedData,
+                                            id: selectedTourId,
+                                            gameStats: {
+                                                ...parsedData.gameStats,
+                                                isPaused: true,
+                                                targetEndTime: null
+                                            }
+                                        };
+                                    }
+                                    return t;
+                                })
+                            };
+                            if (window.saveTournamentsToCloud) {
+                                window.saveTournamentsToCloud(nextState);
+                            }
+                            return nextState;
+                        });
                         alert(`Đã cập nhật tour "${parsedData.config.name}" thành công!`);
                     } else if (Array.isArray(parsedData) && parsedData.length > 0) {
                         userHasModified.current = true;
                         isRemoteUpdating.current = false;
-                        setAppState(prev => ({ ...prev, tours: parsedData, selectedTourId: parsedData[0].id }));
+                        setAppState(prev => {
+                            const nextState = { ...prev, tours: parsedData, selectedTourId: parsedData[0].id };
+                            if (window.saveTournamentsToCloud) {
+                                window.saveTournamentsToCloud(nextState);
+                            }
+                            return nextState;
+                        });
                         alert("Đã nhập toàn bộ danh sách Tour thành công!");
                     } else {
                         alert("File JSON không hợp lệ!");
@@ -1330,49 +1405,61 @@ function App() {
     const nextStepTour = (tourId) => {
         userHasModified.current = true;
         const now = Date.now();
-        setAppState(prev => ({
-            ...prev,
-            tours: prev.tours.map(t => {
-                if (t.id === tourId && t.gameStats.currentStepIdx < t.blinds.length - 1) {
-                    const nextIdx = t.gameStats.currentStepIdx + 1;
-                    const nextSecs = t.blinds[nextIdx].length * 60;
-                    return {
-                        ...t,
-                        gameStats: {
-                            ...t.gameStats,
-                            currentStepIdx: nextIdx,
-                            secondsLeft: nextSecs,
-                            targetEndTime: t.gameStats.isPaused ? null : now + (nextSecs * 1000)
-                        }
-                    };
-                }
-                return t;
-            })
-        }));
+        setAppState(prev => {
+            const nextState = {
+                ...prev,
+                tours: prev.tours.map(t => {
+                    if (t.id === tourId && t.gameStats.currentStepIdx < t.blinds.length - 1) {
+                        const nextIdx = t.gameStats.currentStepIdx + 1;
+                        const nextSecs = t.blinds[nextIdx].length * 60;
+                        return {
+                            ...t,
+                            gameStats: {
+                                ...t.gameStats,
+                                currentStepIdx: nextIdx,
+                                secondsLeft: nextSecs,
+                                targetEndTime: t.gameStats.isPaused ? null : now + (nextSecs * 1000)
+                            }
+                        };
+                    }
+                    return t;
+                })
+            };
+            if (window.saveTournamentsToCloud) {
+                window.saveTournamentsToCloud(nextState);
+            }
+            return nextState;
+        });
     };
 
     const prevStepTour = (tourId) => {
         userHasModified.current = true;
         const now = Date.now();
-        setAppState(prev => ({
-            ...prev,
-            tours: prev.tours.map(t => {
-                if (t.id === tourId && t.gameStats.currentStepIdx > 0) {
-                    const prevIdx = t.gameStats.currentStepIdx - 1;
-                    const prevSecs = t.blinds[prevIdx].length * 60;
-                    return {
-                        ...t,
-                        gameStats: {
-                            ...t.gameStats,
-                            currentStepIdx: prevIdx,
-                            secondsLeft: prevSecs,
-                            targetEndTime: t.gameStats.isPaused ? null : now + (prevSecs * 1000)
-                        }
-                    };
-                }
-                return t;
-            })
-        }));
+        setAppState(prev => {
+            const nextState = {
+                ...prev,
+                tours: prev.tours.map(t => {
+                    if (t.id === tourId && t.gameStats.currentStepIdx > 0) {
+                        const prevIdx = t.gameStats.currentStepIdx - 1;
+                        const prevSecs = t.blinds[prevIdx].length * 60;
+                        return {
+                            ...t,
+                            gameStats: {
+                                ...t.gameStats,
+                                currentStepIdx: prevIdx,
+                                secondsLeft: prevSecs,
+                                targetEndTime: t.gameStats.isPaused ? null : now + (prevSecs * 1000)
+                            }
+                        };
+                    }
+                    return t;
+                })
+            };
+            if (window.saveTournamentsToCloud) {
+                window.saveTournamentsToCloud(nextState);
+            }
+            return nextState;
+        });
     };
 
     const handleSearchPhone = (e) => {
@@ -2384,3 +2471,4 @@ ReactDOM.render(<App />, document.getElementById('root'));
     </script>
 </body>
 </html>
+```
