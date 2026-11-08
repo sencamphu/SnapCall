@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -48,7 +49,7 @@ window.initCloudSync = async function(onDataReceived, onSyncStatusChange) {
                 if (data && data.data && data.data.tours && data.data.tours.length > 0) {
                     onDataReceived(data.data);
                 } else {
-                    console.log("Supabase Cloud chưa có dữ liệu, khởi tạo mặc định...");
+                    console.log("Supabase Cloud chưa có dữ liệu cấu trúc live_state.");
                 }
             } catch(e) {
                 console.warn("Fetch Error:", e);
@@ -58,7 +59,7 @@ window.initCloudSync = async function(onDataReceived, onSyncStatusChange) {
         await fetchData();
 
         window.supabaseChannel = window.supabaseClient
-            .channel('room_poker_live_v29', { config: { broadcast: { self: true } } })
+            .channel('room_poker_live_v30', { config: { broadcast: { self: true } } })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'tournaments' }, payload => {
                 if (payload.new && payload.new.data) {
                     onDataReceived(payload.new.data);
@@ -82,7 +83,7 @@ window.saveAppStateToCloud = async (appDataState) => {
         const payloadData = {
             tours: appDataState.tours,
             presets: appDataState.presets || [],
-            lastUpdated: Date.now()
+            lastUpdated: appDataState.lastUpdated || Date.now()
         };
 
         if (window.supabaseChannel) {
@@ -697,8 +698,6 @@ function App() {
     const [pinInput, setPinInput] = useState('');
     const [loginError, setLoginError] = useState('');
 
-    const isInitializedRef = useRef(false);
-
     const [appState, setAppState] = useState(() => {
         const cached = localStorage.getItem('snapcall_live_app_state');
         if (cached) {
@@ -750,8 +749,15 @@ function App() {
             window.initCloudSync(
                 (cloudState) => {
                     if (cloudState && cloudState.tours && Array.isArray(cloudState.tours) && cloudState.tours.length > 0) {
-                        isInitializedRef.current = true;
-                        setAppState(cloudState);
+                        setAppState(prevState => {
+                            const cloudTime = cloudState.lastUpdated || 0;
+                            const localTime = prevState.lastUpdated || 0;
+                            if (cloudTime >= localTime) {
+                                localStorage.setItem('snapcall_live_app_state', JSON.stringify(cloudState));
+                                return cloudState;
+                            }
+                            return prevState;
+                        });
                         setAdminSetupTourId(currId => cloudState.tours.some(t => t.id === currId) ? currId : cloudState.tours[0].id);
                         setPublicViewTourId(currId => cloudState.tours.some(t => t.id === currId) ? currId : cloudState.tours[0].id);
                     }
@@ -897,7 +903,7 @@ function App() {
                 });
 
                 if (changed) {
-                    return { ...prevState, tours: newTours };
+                    return { ...prevState, tours: newTours, lastUpdated: Date.now() };
                 }
                 return prevState;
             });
@@ -1648,7 +1654,7 @@ function App() {
                                     ) : (
                                         <div className="bg-gradient-to-b from-emerald-950/80 to-black/90 border border-emerald-500/50 rounded-2xl p-4 text-center shadow-lg">
                                             <div className="text-emerald-400 font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2">
-                                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span> 🟢 TOUR Đang DIỄN RA
+                                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span> 🟢 TOUR ĐANG DIỄN RA
                                             </div>
                                             <div className="text-[11px] text-gray-300 mt-1 font-medium">Giải đấu đã chính thức khởi tranh</div>
                                         </div>
