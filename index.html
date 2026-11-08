@@ -24,7 +24,8 @@
 const SUPABASE_URL = "https://mkizhwumwxfqlwwfoief.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_XL_p7DDfizVqdz_mETXztw_7MecHfiQ";
 
-window.popoutBroadcastChannel = new BroadcastChannel('snapcall_popout_sync');
+window.supabaseClient = null;
+window.supabaseChannel = null;
 
 window.initCloudSync = async function(onDataReceived, onSyncStatusChange) {
     if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !window.supabase) {
@@ -34,12 +35,13 @@ window.initCloudSync = async function(onDataReceived, onSyncStatusChange) {
     }
 
     try {
-        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         onSyncStatusChange(true);
 
+        // 1. Tải dữ liệu chuẩn từ Supabase Cloud khi vừa khởi chạy
         const fetchData = async () => {
             try {
-                const { data, error } = await supabaseClient
+                const { data, error } = await window.supabaseClient
                     .from('tournaments')
                     .select('data')
                     .eq('id', 'live_state')
@@ -55,7 +57,8 @@ window.initCloudSync = async function(onDataReceived, onSyncStatusChange) {
 
         await fetchData();
 
-        const channel = supabaseClient
+        // 2. Đăng ký nhận Realtime Broadcast (0ms Delay)
+        window.supabaseChannel = window.supabaseClient
             .channel('room_poker_live_v25', { config: { broadcast: { self: true } } })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'tournaments' }, payload => {
                 if (payload.new && payload.new.data) {
@@ -69,38 +72,39 @@ window.initCloudSync = async function(onDataReceived, onSyncStatusChange) {
             })
             .subscribe();
 
-        window.saveTournamentsToCloud = async (appDataState) => {
-            const isAdmin = localStorage.getItem('snapcall_admin_auth') === 'true';
-            window.popoutBroadcastChannel.postMessage({ data: appDataState });
-
-            if (!isAdmin) return;
-
-            try {
-                const payloadData = {
-                    ...appDataState,
-                    lastUpdated: Date.now()
-                };
-
-                channel.send({
-                    type: 'broadcast',
-                    event: 'tour_update',
-                    payload: { data: payloadData }
-                });
-
-                const { error } = await supabaseClient
-                    .from('tournaments')
-                    .upsert({ id: 'live_state', data: payloadData, updated_at: new Date().toISOString() });
-
-                if (error) {
-                    console.error("Supabase Upsert Error:", error);
-                }
-            } catch (e) {
-                console.warn("Lỗi lưu Supabase Cloud:", e);
-            }
-        };
     } catch (err) {
         console.warn("Lỗi kết nối Supabase Cloud Sync:", err);
         onSyncStatusChange(false);
+    }
+};
+
+window.saveAppStateToCloud = async (appDataState) => {
+    try {
+        const payloadData = {
+            ...appDataState,
+            lastUpdated: Date.now()
+        };
+
+        // Bắn tín hiệu Broadcast 0ms tới các tab/thiết bị khác
+        if (window.supabaseChannel) {
+            window.supabaseChannel.send({
+                type: 'broadcast',
+                event: 'tour_update',
+                payload: { data: payloadData }
+            });
+        }
+
+        // Đẩy dữ liệu lưu đè lên Supabase Cloud
+        if (window.supabaseClient) {
+            await window.supabaseClient
+                .from('tournaments')
+                .upsert({ id: 'live_state', data: payloadData, updated_at: new Date().toISOString() });
+        }
+
+        // Lưu bản đệm bộ nhớ thiết bị
+        localStorage.setItem('snapcall_live_app_state', JSON.stringify(payloadData));
+    } catch (e) {
+        console.warn("Lỗi lưu Supabase Cloud:", e);
     }
 };
 </script>
@@ -181,28 +185,6 @@ html, body {
 
 <script type="text/babel">
 const { useState, useEffect, useRef } = React;
-
-// Component React Portal hỗ trợ Pop-out TV không bị đứng/đơ
-function PopoutPortal({ children, popoutWindow }) {
-    const containerEl = useRef(document.createElement('div'));
-
-    useEffect(() => {
-        const container = containerEl.current;
-        container.className = "w-full h-full flex flex-col justify-center items-center p-0 m-0 overflow-hidden";
-        if (popoutWindow && popoutWindow.document && popoutWindow.document.body) {
-            popoutWindow.document.body.appendChild(container);
-        }
-        return () => {
-            if (popoutWindow && popoutWindow.document && popoutWindow.document.body) {
-                try {
-                    popoutWindow.document.body.removeChild(container);
-                } catch(e) {}
-            }
-        };
-    }, [popoutWindow]);
-
-    return ReactDOM.createPortal(children, containerEl.current);
-}
 
 const fontOptions = [
     { label: 'Mẫu 1: Montserrat Pro', value: 'font-montserrat' },
@@ -451,7 +433,7 @@ const playSoundEffect = (soundType) => {
     }
 };
 
-function TournamentTVCard({ tour, openSinglePopout, isPopoutWindow }) {
+function TournamentTVCard({ tour, openSinglePopout, isStandaloneTVMode }) {
     if (!tour) return null;
     const currentStep = tour.blinds[tour.gameStats.currentStepIdx] || tour.blinds[0];
 
@@ -512,18 +494,18 @@ function TournamentTVCard({ tour, openSinglePopout, isPopoutWindow }) {
 
     return (
         <div
-            className={`w-full gold-border-box rounded-3xl bg-black/85 backdrop-blur-md p-4 sm:p-6 md:p-8 relative overflow-hidden shadow-2xl flex flex-col justify-between ${selectedFontClass} ${isPopoutWindow ? 'h-full min-h-screen' : 'min-h-[82vh] lg:min-h-[85vh]'} my-auto`}
+            className={`w-full gold-border-box rounded-3xl bg-black/85 backdrop-blur-md p-4 sm:p-6 md:p-8 relative overflow-hidden shadow-2xl flex flex-col justify-between ${selectedFontClass} ${isStandaloneTVMode ? 'h-screen min-h-screen rounded-none border-none p-6 md:p-10' : 'min-h-[82vh] lg:min-h-[85vh]'} my-auto`}
             style={{
                 backgroundImage: tour.config.bgImageUrl ? `url(${tour.config.bgImageUrl})` : 'none',
                 backgroundSize: 'cover',
                 backgroundPosition: 'center'
             }}
         >
-            {openSinglePopout && (
+            {openSinglePopout && !isStandaloneTVMode && (
                 <button
                     onClick={() => openSinglePopout(tour.id)}
                     className="absolute top-3 right-3 z-30 bg-sky-700/80 hover:bg-sky-600 text-white font-bold px-3 py-1.5 rounded-xl border border-sky-400/50 text-xs shadow transition flex items-center gap-1.5 cursor-pointer"
-                    title="Mở riêng giải đấu này ra cửa sổ TV mới"
+                    title="Mở riêng giải đấu này ra tab Popout TV độc lập"
                 >
                     <i className="fa-solid fa-up-right-from-square"></i> Popout TV
                 </button>
@@ -570,7 +552,7 @@ function TournamentTVCard({ tour, openSinglePopout, isPopoutWindow }) {
                             {tour.gameStats.isFinished
                                 ? '🏆 TOUR FINISHED'
                                 : (currentStep.type === 'break'
-                                    ? `BREAK TIME ${currentStep.title ? `(${currentStep.title})` : ''} ${currentStep.isChipRace ? '- CHIP RACE' : ''}`
+                                    ? `BREAK TIME ${currentStep.title ? `(${currentStep.title})` : ''}`
                                     : `LEVEL ${currentLevelNum}`)}
                         </span>
                     </div>
@@ -591,7 +573,7 @@ function TournamentTVCard({ tour, openSinglePopout, isPopoutWindow }) {
                         )}
                     </div>
 
-                    {/* HIỂN THỊ BLINDS / BREAK TIME (LOẠI BỎ DÒNG RACE CHIP TRONG TV VIEW) */}
+                    {/* HIỂN THỊ BLINDS / BREAK TIME (LOẠI BỎ HOÀN TOÀN DÒNG RACE CHIP TRONG TV VIEW) */}
                     <div className="font-bold tracking-wider" style={{ fontSize: `${fontSizes.blindsPx || 54}px`, color: themeStyle.blindsColor }}>
                         {tour.gameStats.isFinished ? 'CẢM ƠN QUÝ HỘI VIÊN ĐÃ THAM GIA' : (currentStep.type === 'break' ? 'BREAK TIME' : `BLINDS : ${currentStep.sb.toLocaleString()} / ${currentStep.bb.toLocaleString()}`)}
                     </div>
@@ -680,6 +662,9 @@ function TournamentTVCard({ tour, openSinglePopout, isPopoutWindow }) {
 }
 
 function App() {
+    const [isStandaloneTV, setIsStandaloneTV] = useState(false);
+    const [standaloneTourId, setStandaloneTourId] = useState(null);
+
     const [activeView, setActiveView] = useState('combined-dashboard');
     const [wizardStep, setWizardStep] = useState(1);
     const [isCloudSynced, setIsCloudSynced] = useState(false);
@@ -689,8 +674,6 @@ function App() {
     const [showFontSizesCollapse, setShowFontSizesCollapse] = useState(false);
 
     const [preTourCountdownSecs, setPreTourCountdownSecs] = useState(0);
-    const [popoutWindow, setPopoutWindow] = useState(null);
-    const [popoutTourId, setPopoutTourId] = useState(null);
 
     const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
         return localStorage.getItem('snapcall_admin_auth') === 'true';
@@ -702,6 +685,13 @@ function App() {
     const [loginError, setLoginError] = useState('');
 
     const [appState, setAppState] = useState(() => {
+        const cached = localStorage.getItem('snapcall_live_app_state');
+        if (cached) {
+            try {
+                const parsed = JSON.parse(cached);
+                if (parsed && parsed.tours && parsed.tours.length > 0) return parsed;
+            } catch(e) {}
+        }
         return {
             tours: [
                 defaultTourTemplate('MONTER STACK', 101, 100, 100)
@@ -714,6 +704,19 @@ function App() {
 
     const [adminSetupTourId, setAdminSetupTourId] = useState(101);
     const [publicViewTourId, setPublicViewTourId] = useState(null);
+
+    // Kiểm tra URL query parameter khi tải trang (Đồng bộ Popout TV URL)
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const viewParam = urlParams.get('view');
+        const tourIdParam = urlParams.get('tourId');
+        if (viewParam === 'tv') {
+            setIsStandaloneTV(true);
+            if (tourIdParam) {
+                setStandaloneTourId(Number(tourIdParam));
+            }
+        }
+    }, []);
 
     const tournaments = appState.tours || [];
     const presets = appState.presets || [];
@@ -729,19 +732,13 @@ function App() {
         setDraftConfigState(JSON.parse(JSON.stringify(activeAdminTour)));
     }, [adminSetupTourId, masterSelectedTourId]);
 
+    // Khởi tạo Supabase Realtime Sync 100% Cloud
     useEffect(() => {
         if (window.initCloudSync) {
             window.initCloudSync(
-                (cloudState, isFromRemote) => {
+                (cloudState) => {
                     if (cloudState && cloudState.tours && Array.isArray(cloudState.tours) && cloudState.tours.length > 0) {
-                        setAppState(prev => {
-                            return {
-                                tours: cloudState.tours,
-                                presets: cloudState.presets || [],
-                                selectedTourId: cloudState.selectedTourId || cloudState.tours[0].id,
-                                lastUpdated: cloudState.lastUpdated || Date.now()
-                            };
-                        });
+                        setAppState(cloudState);
                         setAdminSetupTourId(currId => {
                             const exists = cloudState.tours.some(t => t.id === currId);
                             return exists ? currId : (cloudState.selectedTourId || cloudState.tours[0].id);
@@ -783,30 +780,24 @@ function App() {
 
     const handleAdminSelectTourId = (tourId) => {
         setAdminSetupTourId(tourId);
-        if (isAdminLoggedIn) {
-            setAppState(prev => {
-                const nextState = { ...prev, selectedTourId: tourId, lastUpdated: Date.now() };
-                if (window.saveTournamentsToCloud) {
-                    window.saveTournamentsToCloud(nextState);
-                }
-                return nextState;
-            });
-        }
+        setAppState(prev => {
+            const nextState = { ...prev, selectedTourId: tourId, lastUpdated: Date.now() };
+            if (window.saveAppStateToCloud) {
+                window.saveAppStateToCloud(nextState);
+            }
+            return nextState;
+        });
     };
 
     const applyDraftChangesToLive = () => {
-        if (!isAdminLoggedIn) {
-            alert("Bạn cần Đăng nhập Admin để áp dụng thay đổi!");
-            return;
-        }
         setAppState(prev => {
             const nextState = {
                 ...prev,
                 tours: prev.tours.map(t => t.id === adminSetupTourId ? JSON.parse(JSON.stringify(draftConfigState)) : t),
                 lastUpdated: Date.now()
             };
-            if (window.saveTournamentsToCloud) {
-                window.saveTournamentsToCloud(nextState);
+            if (window.saveAppStateToCloud) {
+                window.saveAppStateToCloud(nextState);
             }
             return nextState;
         });
@@ -962,7 +953,6 @@ function App() {
     };
 
     const handleStatChange = (field, delta) => {
-        if (!isAdminLoggedIn) return;
         setAppState(prev => {
             const nextState = {
                 ...prev,
@@ -980,15 +970,14 @@ function App() {
                 }),
                 lastUpdated: Date.now()
             };
-            if (window.saveTournamentsToCloud) {
-                window.saveTournamentsToCloud(nextState);
+            if (window.saveAppStateToCloud) {
+                window.saveAppStateToCloud(nextState);
             }
             return nextState;
         });
     };
 
     const togglePauseTour = (tourId) => {
-        if (!isAdminLoggedIn) return;
         const now = Date.now();
         setAppState(prev => {
             const nextState = {
@@ -1021,15 +1010,14 @@ function App() {
                 }),
                 lastUpdated: Date.now()
             };
-            if (window.saveTournamentsToCloud) {
-                window.saveTournamentsToCloud(nextState);
+            if (window.saveAppStateToCloud) {
+                window.saveAppStateToCloud(nextState);
             }
             return nextState;
         });
     };
 
     const finishTour = (tourId) => {
-        if (!isAdminLoggedIn) return;
         if (window.confirm("Bạn có chắc chắn muốn KẾT THÚC Tour đấu này? Giao diện TV sẽ hiển thị vinh danh kết thúc.")) {
             setAppState(prev => {
                 const nextState = {
@@ -1050,8 +1038,8 @@ function App() {
                     }),
                     lastUpdated: Date.now()
                 };
-                if (window.saveTournamentsToCloud) {
-                    window.saveTournamentsToCloud(nextState);
+                if (window.saveAppStateToCloud) {
+                    window.saveAppStateToCloud(nextState);
                 }
                 return nextState;
             });
@@ -1059,7 +1047,6 @@ function App() {
     };
 
     const adjustTimerSeconds = (tourId, deltaSeconds) => {
-        if (!isAdminLoggedIn) return;
         const now = Date.now();
         setAppState(prev => {
             const nextState = {
@@ -1080,16 +1067,15 @@ function App() {
                 }),
                 lastUpdated: Date.now()
             };
-            if (window.saveTournamentsToCloud) {
-                window.saveTournamentsToCloud(nextState);
+            if (window.saveAppStateToCloud) {
+                window.saveAppStateToCloud(nextState);
             }
             return nextState;
         });
     };
 
-    // TẠO TOUR MỚI: TỰ ĐỘNG LƯU SUPABASE CLOUD NGAY TẠI THỜI ĐIỂM BẤM NÚT
+    // TẠO TOUR MỚI: TỰ ĐỘNG ĐỒNG BỘ SUPABASE CLOUD NGAY LẬP TỨC 100%
     const addNewTournament = () => {
-        if (!isAdminLoggedIn) return;
         const newId = Date.now();
         const newTour = defaultTourTemplate(`TOUR #${tournaments.length + 1}`, newId, 100, 100);
         newTour.gameStats.isPaused = true;
@@ -1102,17 +1088,16 @@ function App() {
                 selectedTourId: newId,
                 lastUpdated: Date.now()
             };
-            if (window.saveTournamentsToCloud) {
-                window.saveTournamentsToCloud(nextState);
+            if (window.saveAppStateToCloud) {
+                window.saveAppStateToCloud(nextState);
             }
             return nextState;
         });
         setAdminSetupTourId(newId);
     };
 
-    // XÓA TOUR: TỰ ĐỘNG ĐỒNG BỘ CLOUD NGAY LẬP TỨC
+    // XÓA TOUR: TỰ ĐỘNG ĐỒNG BỘ SUPABASE CLOUD NGAY LẬP TỨC
     const removeTournament = (tourId) => {
-        if (!isAdminLoggedIn) return;
         if (tournaments.length <= 1) {
             alert("Cần duy trì ít nhất 1 giải đấu trong hệ thống!");
             return;
@@ -1126,8 +1111,8 @@ function App() {
                     selectedTourId: remaining[0].id,
                     lastUpdated: Date.now()
                 };
-                if (window.saveTournamentsToCloud) {
-                    window.saveTournamentsToCloud(nextState);
+                if (window.saveAppStateToCloud) {
+                    window.saveAppStateToCloud(nextState);
                 }
                 return nextState;
             });
@@ -1136,7 +1121,6 @@ function App() {
     };
 
     const saveCurrentTourAsPreset = () => {
-        if (!isAdminLoggedIn) return;
         const presetName = prompt("Nhập tên để lưu mẫu Tour này (vd: Monster Stack 100k, High Roller 500k):", activeAdminTour.config.name);
         if (!presetName) return;
 
@@ -1152,8 +1136,8 @@ function App() {
                 presets: [...(prev.presets || []).filter(p => p.name !== presetName), newPreset],
                 lastUpdated: Date.now()
             };
-            if (window.saveTournamentsToCloud) {
-                window.saveTournamentsToCloud(nextState);
+            if (window.saveAppStateToCloud) {
+                window.saveAppStateToCloud(nextState);
             }
             return nextState;
         });
@@ -1161,7 +1145,6 @@ function App() {
     };
 
     const applyPresetToActiveTour = (presetObj) => {
-        if (!isAdminLoggedIn) return;
         if (window.confirm(`Bạn có muốn nạp mẫu tour "${presetObj.name}" đè lên tour "${activeAdminTour.config.name}" hiện tại?`)) {
             const loaded = JSON.parse(JSON.stringify(presetObj.tourTemplate));
             loaded.id = adminSetupTourId;
@@ -1174,8 +1157,8 @@ function App() {
                     tours: prev.tours.map(t => t.id === adminSetupTourId ? loaded : t),
                     lastUpdated: Date.now()
                 };
-                if (window.saveTournamentsToCloud) {
-                    window.saveTournamentsToCloud(nextState);
+                if (window.saveAppStateToCloud) {
+                    window.saveAppStateToCloud(nextState);
                 }
                 return nextState;
             });
@@ -1183,7 +1166,6 @@ function App() {
     };
 
     const deletePreset = (presetId, presetName) => {
-        if (!isAdminLoggedIn) return;
         if (window.confirm(`Bạn có chắc chắn muốn XÓA mẫu tour "${presetName}" khỏi thư viện?`)) {
             setAppState(prev => {
                 const nextState = {
@@ -1191,8 +1173,8 @@ function App() {
                     presets: (prev.presets || []).filter(p => p.id !== presetId),
                     lastUpdated: Date.now()
                 };
-                if (window.saveTournamentsToCloud) {
-                    window.saveTournamentsToCloud(nextState);
+                if (window.saveAppStateToCloud) {
+                    window.saveAppStateToCloud(nextState);
                 }
                 return nextState;
             });
@@ -1210,7 +1192,6 @@ function App() {
     };
 
     const loadSingleTourFromFile = (e) => {
-        if (!isAdminLoggedIn) return;
         const fileReader = new FileReader();
         if (e.target.files && e.target.files[0]) {
             fileReader.readAsText(e.target.files[0], "UTF-8");
@@ -1237,8 +1218,8 @@ function App() {
                                 }),
                                 lastUpdated: Date.now()
                             };
-                            if (window.saveTournamentsToCloud) {
-                                window.saveTournamentsToCloud(nextState);
+                            if (window.saveAppStateToCloud) {
+                                window.saveAppStateToCloud(nextState);
                             }
                             return nextState;
                         });
@@ -1246,8 +1227,8 @@ function App() {
                     } else if (Array.isArray(parsedData) && parsedData.length > 0) {
                         setAppState(prev => {
                             const nextState = { ...prev, tours: parsedData, selectedTourId: parsedData[0].id, lastUpdated: Date.now() };
-                            if (window.saveTournamentsToCloud) {
-                                window.saveTournamentsToCloud(nextState);
+                            if (window.saveAppStateToCloud) {
+                                window.saveAppStateToCloud(nextState);
                             }
                             return nextState;
                         });
@@ -1262,21 +1243,12 @@ function App() {
         }
     };
 
-    // MỞ CỬA SỔ POPOUT TV BẰNG REACT PORTALS (MƯỢT 100%, KHÔNG KHỰA/ĐƠ)
+    // MỞ CỬA SỔ POPOUT TV BẰNG URL ĐỘC LẬP (MƯỢT 100%, KHÔNG KHỰA/ĐƠ)
     const openSinglePopoutWindow = (targetTourId) => {
-        const popWindow = window.open('', '_blank', 'width=1280,height=720,left=0,top=0');
-        if (!popWindow) return;
-
-        popWindow.document.write(`<!DOCTYPE html> <html lang="vi"> <head> <meta charset="UTF-8"> <title>Poker TV Display - Snap Call</title> ${document.head.innerHTML} </head> <body class="w-full h-full poker-bg flex flex-col justify-center p-0 m-0 overflow-hidden"> </body> </html>`);
-        popWindow.document.close();
-
-        setPopoutTourId(targetTourId);
-        setPopoutWindow(popWindow);
-
-        popWindow.addEventListener('beforeunload', () => {
-            setPopoutWindow(null);
-            setPopoutTourId(null);
-        });
+        const currentUrl = new URL(window.location.href);
+        currentUrl.searchParams.set('view', 'tv');
+        currentUrl.searchParams.set('tourId', targetTourId);
+        window.open(currentUrl.toString(), '_blank');
     };
 
     const calculateNextProfessionalBlind = (currentBb) => {
@@ -1391,7 +1363,6 @@ function App() {
     };
 
     const nextStepTour = (tourId) => {
-        if (!isAdminLoggedIn) return;
         const now = Date.now();
         setAppState(prev => {
             const nextState = {
@@ -1414,15 +1385,14 @@ function App() {
                 }),
                 lastUpdated: Date.now()
             };
-            if (window.saveTournamentsToCloud) {
-                window.saveTournamentsToCloud(nextState);
+            if (window.saveAppStateToCloud) {
+                window.saveAppStateToCloud(nextState);
             }
             return nextState;
         });
     };
 
     const prevStepTour = (tourId) => {
-        if (!isAdminLoggedIn) return;
         const now = Date.now();
         setAppState(prev => {
             const nextState = {
@@ -1445,8 +1415,8 @@ function App() {
                 }),
                 lastUpdated: Date.now()
             };
-            if (window.saveTournamentsToCloud) {
-                window.saveTournamentsToCloud(nextState);
+            if (window.saveAppStateToCloud) {
+                window.saveAppStateToCloud(nextState);
             }
             return nextState;
         });
@@ -1485,17 +1455,18 @@ function App() {
         tourInfoPx: 18
     };
 
-    const targetPopoutTour = tournaments.find(t => t.id === popoutTourId) || activePublicTour;
+    // NẾU MỞ TRANG ĐỘC LẬP CHẾ ĐỘ POPOUT TV
+    if (isStandaloneTV) {
+        const targetTour = tournaments.find(t => t.id === standaloneTourId) || activePublicTour;
+        return (
+            <div className="w-full h-screen bg-black overflow-hidden flex flex-col justify-center items-center">
+                <TournamentTVCard tour={targetTour} isStandaloneTVMode={true} />
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen flex flex-col justify-between pb-20 md:pb-0">
-            {/* RENDER POPOUT TV BẰNG PORTAL */}
-            {popoutWindow && (
-                <PopoutPortal popoutWindow={popoutWindow}>
-                    <TournamentTVCard tour={targetPopoutTour} isPopoutWindow={true} />
-                </PopoutPortal>
-            )}
-
             {/* HEADER ĐIỀU HƯỚNG TOP BAR */}
             <header className="hidden md:flex w-full bg-black/90 backdrop-blur-md border-b border-gold/30 px-6 py-3 justify-between items-center z-50 text-sm">
                 <div className="flex items-center space-x-3">
@@ -2192,12 +2163,6 @@ function App() {
                                                                             <input type="number" value={b.length} onChange={(e)=> updateBlindFieldDraft(b.id, 'length', e.target.value)} className="w-24 bg-gray-900 border border-amber-500/50 rounded-xl p-2 text-center text-amber-300 font-bold text-xs sm:text-sm"/>
                                                                         </div>
                                                                     </div>
-                                                                    {b.isChipRace && (
-                                                                        <div>
-                                                                            <span className="text-[10px] text-amber-400 font-bold block mb-0.5">Chip race title</span>
-                                                                            <input type="text" value={b.chipRaceTitle || ''} placeholder="vd: 100, 500" onChange={(e)=> updateBlindFieldDraft(b.id, 'chipRaceTitle', e.target.value)} className="w-full bg-gray-900 border border-amber-500/40 rounded-xl px-3 py-2 text-amber-300 font-bold text-xs sm:text-sm"/>
-                                                                        </div>
-                                                                    )}
                                                                 </div>
                                                             )}
                                                             <button onClick={() => removeBlindDraft(b.id)} className="text-red-400 hover:text-red-300 font-bold px-3 text-lg cursor-pointer">✕</button>
