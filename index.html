@@ -27,6 +27,92 @@
 
         window.popoutBroadcastChannel = new BroadcastChannel('snapcall_popout_sync');
 
+        const getTodayDateString = () => {
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        };
+
+        window.defaultBlinds = [
+            { id: 1, type: 'level', sb: 100, bb: 100, ante: 100, length: 17 },
+            { id: 2, type: 'level', sb: 100, bb: 200, ante: 200, length: 17 },
+            { id: 3, type: 'level', sb: 200, bb: 400, ante: 400, length: 17 },
+            { id: 4, type: 'break', length: 10, title: '1st', isChipRace: true, chipRaceTitle: '100, 500' },
+            { id: 5, type: 'level', sb: 300, bb: 600, ante: 600, length: 17 },
+            { id: 6, type: 'level', sb: 400, bb: 800, ante: 800, length: 17 },
+            { id: 7, type: 'level', sb: 500, bb: 1000, ante: 1000, length: 17 }
+        ];
+
+        window.defaultTourTemplate = (name, id, buyIn, rebuyPrice) => ({
+            id: id || 101,
+            config: {
+                showClubName: true,
+                showSubTitle: true,
+                clubName: 'SNAP CALL',
+                subTitle: 'BOARD GAME & COFFEE',
+                name: name || 'MONTER STACK',
+                scheduledStartDate: getTodayDateString(),
+                scheduledStartTime: '13:00',
+                enableScheduledTimer: true,
+                maxLeaderboardTop: 10,
+                buyIn: buyIn || 100,
+                currency: 'TOKEN',
+                fee: 0,
+                startingStack: 25000,
+                maxPlayersPerTable: 10,
+                allowRebuys: true,
+                rebuyPrice: rebuyPrice || 100,
+                regEndLevel: 11,
+                logoSizePx: 80,
+                qrSizePx: 70,
+                bgImageUrl: '',
+                logoUrl: '',
+                qrCodeUrl: '',
+                selectedFont: 'font-montserrat',
+                colorTheme: 'tnt-gold',
+                fontCustomSizes: {
+                    brandPx: 30,
+                    headerPx: 56,
+                    subHeaderPx: 18,
+                    timerPx: 120,
+                    blindsPx: 54,
+                    nextLevelPx: 46,
+                    statsPx: 30,
+                    payoutsPx: 24,
+                    levelBadgePx: 22,
+                    tourInfoPx: 18
+                }
+            },
+            blinds: JSON.parse(JSON.stringify(window.defaultBlinds)),
+            payoutMode: 'fixed',
+            payouts: [
+                { place: 'Top 1', value: 10 },
+                { place: 'Top 2', value: 6.5 },
+                { place: 'Top 3', value: 4.5 },
+                { place: 'Top 4', value: 3 },
+                { place: 'Top 5', value: 2 },
+                { place: 'Top 6', value: 1 }
+            ],
+            soundsConfig: {
+                nextLevel: 'Boxing Bell',
+                breakStart: 'Whistle',
+                breakEnd: 'Chime Bell',
+                warning10s: 'Digital Beep'
+            },
+            gameStats: {
+                buyIns: 9,
+                eliminated: 4,
+                rebuys: 5,
+                currentStepIdx: 1,
+                secondsLeft: 611,
+                targetEndTime: Date.now() + (611 * 1000),
+                isPaused: false,
+                isFinished: false
+            }
+        });
+
         window.initCloudSync = async function(onDataReceived, onSyncStatusChange) {
             if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !window.supabase) {
                 console.warn("Supabase SDK chưa sẵn sàng.");
@@ -38,7 +124,7 @@
                 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
                 onSyncStatusChange(true);
 
-                const fetchData = async () => {
+                const fetchCloudData = async () => {
                     try {
                         const { data, error } = await supabaseClient
                             .from('tournaments')
@@ -46,18 +132,32 @@
                             .eq('id', 'live_state')
                             .maybeSingle();
 
-                        if (data && data.data) {
+                        if (data && data.data && data.data.tours && data.data.tours.length > 0) {
                             onDataReceived(data.data, true);
+                        } else {
+                            // Seed default 3 professional tours if cloud is empty
+                            const initialDefaultState = {
+                                tours: [
+                                    window.defaultTourTemplate('MONTER STACK', 101, 100, 100),
+                                    window.defaultTourTemplate('HIGH ROLLER', 102, 500, 500),
+                                    window.defaultTourTemplate('SNAP HYPER', 103, 50, 50)
+                                ],
+                                presets: [],
+                                selectedTourId: 101,
+                                lastUpdated: Date.now()
+                            };
+                            await supabaseClient.from('tournaments').upsert({ id: 'live_state', data: initialDefaultState, updated_at: new Date().toISOString() });
+                            onDataReceived(initialDefaultState, true);
                         }
                     } catch(e) {
                         console.warn("Fetch Error:", e);
                     }
                 };
                 
-                await fetchData();
+                await fetchCloudData();
 
                 const channel = supabaseClient
-                    .channel('room_poker_live_v12', { config: { broadcast: { self: true } } })
+                    .channel('room_poker_live_v15', { config: { broadcast: { self: true } } })
                     .on('postgres_changes', { event: '*', schema: 'public', table: 'tournaments' }, payload => {
                         if (payload.new && payload.new.data) {
                             onDataReceived(payload.new.data, true);
@@ -70,7 +170,7 @@
                     })
                     .subscribe();
 
-                setInterval(fetchData, 1500);
+                setInterval(fetchCloudData, 2000);
 
                 window.saveTournamentsToCloud = async (appDataState) => {
                     const isAdmin = localStorage.getItem('snapcall_admin_auth') === 'true';
@@ -90,13 +190,9 @@
                             payload: { data: payloadData }
                         });
 
-                        const { error } = await supabaseClient
+                        await supabaseClient
                             .from('tournaments')
                             .upsert({ id: 'live_state', data: payloadData, updated_at: new Date().toISOString() });
-                        
-                        if (error) {
-                            console.error("Supabase Upsert Error:", error);
-                        }
                     } catch (e) {
                         console.warn("Lỗi lưu Supabase Cloud:", e);
                     }
@@ -260,16 +356,6 @@ const getThemeStyles = (themeId) => {
     return colorThemes.find(t => t.id === themeId) || colorThemes[0];
 };
 
-const defaultBlinds = [
-    { id: 1, type: 'level', sb: 100, bb: 100, ante: 100, length: 17 },
-    { id: 2, type: 'level', sb: 100, bb: 200, ante: 200, length: 17 },
-    { id: 3, type: 'level', sb: 200, bb: 400, ante: 400, length: 17 },
-    { id: 4, type: 'break', length: 10, title: '1st', isChipRace: true, chipRaceTitle: '100, 500' },
-    { id: 5, type: 'level', sb: 300, bb: 600, ante: 600, length: 17 },
-    { id: 6, type: 'level', sb: 400, bb: 800, ante: 800, length: 17 },
-    { id: 7, type: 'level', sb: 500, bb: 1000, ante: 1000, length: 17 }
-];
-
 const mockLeaderboardData = [
     { rank: 1, name: 'Nguyễn Văn A', phoneLast4: '1234', monthElo: 1250, quarterElo: 3400 },
     { rank: 2, name: 'Trần Thị B', phoneLast4: '5678', monthElo: 1120, quarterElo: 2980 },
@@ -283,90 +369,12 @@ const mockLeaderboardData = [
     { rank: 10, name: 'Nghêm Việt K', phoneLast4: '8901', monthElo: 490, quarterElo: 1410 }
 ];
 
-const getTodayDateString = () => {
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
-};
-
-const defaultTourTemplate = (name, id, buyIn, rebuyPrice) => ({
-    id: id || 101,
-    config: {
-        showClubName: true,
-        showSubTitle: true,
-        clubName: 'SNAP CALL',
-        subTitle: 'BOARD GAME & COFFEE',
-        name: name || 'MONTER STACK',
-        scheduledStartDate: getTodayDateString(),
-        scheduledStartTime: '13:00',
-        enableScheduledTimer: true,
-        maxLeaderboardTop: 10,
-        buyIn: buyIn || 100,
-        currency: 'TOKEN',
-        fee: 0,
-        startingStack: 25000,
-        maxPlayersPerTable: 10,
-        allowRebuys: true,
-        rebuyPrice: rebuyPrice || 100,
-        regEndLevel: 11,
-        logoSizePx: 80,
-        qrSizePx: 70,
-        bgImageUrl: '',
-        logoUrl: '',
-        qrCodeUrl: '',
-        selectedFont: 'font-montserrat',
-        colorTheme: 'tnt-gold',
-        fontCustomSizes: {
-            brandPx: 30,
-            headerPx: 56,
-            subHeaderPx: 18,
-            timerPx: 120,
-            blindsPx: 54,
-            nextLevelPx: 46,
-            statsPx: 30,
-            payoutsPx: 24,
-            levelBadgePx: 22,
-            tourInfoPx: 18
-        }
-    },
-    blinds: JSON.parse(JSON.stringify(defaultBlinds)),
-    payoutMode: 'fixed',
-    payouts: [
-        { place: 'Top 1', value: 10 },
-        { place: 'Top 2', value: 6.5 },
-        { place: 'Top 3', value: 4.5 },
-        { place: 'Top 4', value: 3 },
-        { place: 'Top 5', value: 2 },
-        { place: 'Top 6', value: 1 }
-    ],
-    soundsConfig: {
-        nextLevel: 'Boxing Bell',
-        breakStart: 'Whistle',
-        breakEnd: 'Chime Bell',
-        warning10s: 'Digital Beep'
-    },
-    gameStats: {
-        buyIns: 9,
-        eliminated: 4,
-        rebuys: 5,
-        currentStepIdx: 1,
-        secondsLeft: 611,
-        targetEndTime: null,
-        isPaused: false,
-        isFinished: false
-    }
-});
-
 const playSoundEffect = (soundType) => {
     try {
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
         if (!AudioContextClass) return;
         const ctx = new AudioContextClass();
-        if (ctx.state === 'suspended') {
-            ctx.resume();
-        }
+        if (ctx.state === 'suspended') ctx.resume();
 
         if (soundType === 'Boxing Bell' || soundType === 'Chuông Đấu Kê') {
             [0, 180].forEach(delay => {
@@ -384,8 +392,7 @@ const playSoundEffect = (soundType) => {
                 }, delay);
             });
         } else if (soundType === 'Chime Bell' || soundType === 'Chuông Ngân Vang') {
-            const frequencies = [523.25, 659.25, 783.99, 1046.50];
-            frequencies.forEach((freq, index) => {
+            [523.25, 659.25, 783.99, 1046.50].forEach((freq, index) => {
                 setTimeout(() => {
                     const osc = ctx.createOscillator();
                     const gain = ctx.createGain();
@@ -434,6 +441,23 @@ const playSoundEffect = (soundType) => {
 };
 
 function TournamentTVCard({ tour, openSinglePopout, isPopoutWindow }) {
+    const [localSecondsLeft, setLocalSecondsLeft] = useState(tour.gameStats.secondsLeft);
+
+    // Independent Popout Timer to prevent freezing
+    useEffect(() => {
+        if (!isPopoutWindow) return;
+        const interval = setInterval(() => {
+            if (tour.gameStats.isPaused || tour.gameStats.isFinished || !tour.gameStats.targetEndTime) {
+                setLocalSecondsLeft(tour.gameStats.secondsLeft);
+                return;
+            }
+            const rem = Math.max(0, Math.ceil((tour.gameStats.targetEndTime - Date.now()) / 1000));
+            setLocalSecondsLeft(rem);
+        }, 100);
+        return () => clearInterval(interval);
+    }, [isPopoutWindow, tour.gameStats.targetEndTime, tour.gameStats.isPaused, tour.gameStats.isFinished, tour.gameStats.secondsLeft]);
+
+    const activeSeconds = isPopoutWindow ? localSecondsLeft : tour.gameStats.secondsLeft;
     const currentStep = tour.blinds[tour.gameStats.currentStepIdx] || tour.blinds[0];
 
     const getCalculatedLevelNumber = (blindsList, stepIndex) => {
@@ -445,7 +469,7 @@ function TournamentTVCard({ tour, openSinglePopout, isPopoutWindow }) {
     };
 
     const getSecondsToNextBreak = (t) => {
-        let totalSecs = t.gameStats.secondsLeft;
+        let totalSecs = activeSeconds;
         for (let i = t.gameStats.currentStepIdx + 1; i < t.blinds.length; i++) {
             if (t.blinds[i].type === 'break') break;
             totalSecs += t.blinds[i].length * 60;
@@ -567,7 +591,7 @@ function TournamentTVCard({ tour, openSinglePopout, isPopoutWindow }) {
                             </div>
                         ) : (
                             <div className="font-timer font-black tracking-wider leading-none" style={{ fontSize: `${fontSizes.timerPx || 120}px`, color: themeStyle.timerColor, textShadow: themeStyle.timerGlow }}>
-                                {formatTime(tour.gameStats.secondsLeft)}
+                                {formatTime(activeSeconds)}
                             </div>
                         )}
                     </div>
@@ -677,16 +701,16 @@ function App() {
     const [pinInput, setPinInput] = useState('');
     const [loginError, setLoginError] = useState('');
 
-    const [appState, setAppState] = useState(() => {
-        return {
-            tours: [
-                defaultTourTemplate('MONTER STACK', 101, 100, 100)
-            ],
-            presets: [],
-            selectedTourId: 101,
-            lastUpdated: Date.now()
-        };
-    });
+    const [appState, setAppState] = useState(() => ({
+        tours: [
+            defaultTourTemplate('MONTER STACK', 101, 100, 100),
+            defaultTourTemplate('HIGH ROLLER', 102, 500, 500),
+            defaultTourTemplate('SNAP HYPER', 103, 50, 50)
+        ],
+        presets: [],
+        selectedTourId: 101,
+        lastUpdated: Date.now()
+    }));
 
     const [adminSetupTourId, setAdminSetupTourId] = useState(101);
     const [publicViewTourId, setPublicViewTourId] = useState(null);
@@ -711,14 +735,12 @@ function App() {
             window.initCloudSync(
                 (cloudState, isFromRemote) => {
                     if (cloudState && cloudState.tours && Array.isArray(cloudState.tours) && cloudState.tours.length > 0) {
-                        setAppState(prev => {
-                            return {
-                                tours: cloudState.tours,
-                                presets: cloudState.presets || [],
-                                selectedTourId: cloudState.selectedTourId || cloudState.tours[0].id,
-                                lastUpdated: cloudState.lastUpdated || Date.now()
-                            };
-                        });
+                        setAppState(prev => ({
+                            tours: cloudState.tours,
+                            presets: cloudState.presets || [],
+                            selectedTourId: cloudState.selectedTourId || cloudState.tours[0].id,
+                            lastUpdated: cloudState.lastUpdated || Date.now()
+                        }));
                         setAdminSetupTourId(currId => {
                             const exists = cloudState.tours.some(t => t.id === currId);
                             return exists ? currId : (cloudState.selectedTourId || cloudState.tours[0].id);
@@ -741,16 +763,13 @@ function App() {
             const targetDate = new Date(yyyy, mm - 1, dd, hrs, mins, 0);
             const now = new Date();
             
-            const diffSecs = Math.floor((targetDate.getTime() - now.getTime()) / 1000);
-            return diffSecs;
+            return Math.floor((targetDate.getTime() - now.getTime()) / 1000);
         };
 
         setPreTourCountdownSecs(calcRemaining());
-
         const interval = setInterval(() => {
             setPreTourCountdownSecs(calcRemaining());
         }, 1000);
-
         return () => clearInterval(interval);
     }, [activePublicTour.config.scheduledStartDate, activePublicTour.config.scheduledStartTime]);
 
