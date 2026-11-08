@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Snap Call</title>
+    <title>Poker Club & TV Display Dashboard - Professional Edition</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- React & ReactDOM -->
@@ -25,8 +25,11 @@
         const SUPABASE_URL = "https://mkizhwumwxfqlwwfoief.supabase.co";
         const SUPABASE_ANON_KEY = "sb_publishable_XL_p7DDfizVqdz_mETXztw_7MecHfiQ";
 
-        // Khóa đồng bộ ban đầu ngắt hoàn toàn tình trạng thiết bị cũ ghi đè ngược Cloud
         window.isFirstCloudSyncDone = false;
+        window.lastCloudTimestamp = 0;
+
+        // Broadcast channel để truyền dữ liệu đồng bộ siêu tốc cho cửa sổ Pop-out
+        window.popoutBroadcastChannel = new BroadcastChannel('snapcall_popout_sync');
 
         window.initCloudSync = async function(onDataReceived, onSyncStatusChange) {
             if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !window.supabase) {
@@ -42,11 +45,13 @@
                 const fetchData = async () => {
                     const { data, error } = await supabaseClient
                         .from('tournaments')
-                        .select('data')
+                        .select('data, updated_at')
                         .eq('id', 'live_state')
                         .maybeSingle();
 
                     if (data && data.data) {
+                        const recordTime = data.updated_at ? new Date(data.updated_at).getTime() : Date.now();
+                        window.lastCloudTimestamp = recordTime;
                         window.isFirstCloudSyncDone = true;
                         onDataReceived(data.data, true);
                     } else {
@@ -59,36 +64,48 @@
                     .channel('room_poker_live', { config: { broadcast: { self: false } } })
                     .on('postgres_changes', { event: '*', schema: 'public', table: 'tournaments' }, payload => {
                         if (payload.new && payload.new.data) {
-                            window.isFirstCloudSyncDone = true;
-                            onDataReceived(payload.new.data, true);
+                            const recordTime = payload.new.updated_at ? new Date(payload.new.updated_at).getTime() : Date.now();
+                            if (recordTime >= window.lastCloudTimestamp) {
+                                window.lastCloudTimestamp = recordTime;
+                                window.isFirstCloudSyncDone = true;
+                                onDataReceived(payload.new.data, true);
+                            }
                         }
                     })
                     .on('broadcast', { event: 'tour_update' }, payload => {
                         if (payload.payload && payload.payload.data) {
-                            window.isFirstCloudSyncDone = true;
-                            onDataReceived(payload.payload.data, true);
+                            const recordTime = payload.payload.timestamp || Date.now();
+                            if (recordTime >= window.lastCloudTimestamp) {
+                                window.lastCloudTimestamp = recordTime;
+                                window.isFirstCloudSyncDone = true;
+                                onDataReceived(payload.payload.data, true);
+                            }
                         }
                     })
                     .subscribe();
 
                 let dbSaveTimeout = null;
                 window.saveTournamentsToCloud = async (appDataState) => {
-                    // CHỈ PHÁT VÀ LƯU CLOUD KHI ĐÃ ĐỒNG BỘ BAN ĐẦU THÀNH CÔNG VÀ ADMIN CÓ THAO TÁC SỬA
-                    if (!window.isFirstCloudSyncDone) {
-                        return;
-                    }
+                    if (!window.isFirstCloudSyncDone) return;
+                    
+                    const nowTime = Date.now();
+                    window.lastCloudTimestamp = nowTime;
+
+                    // Phát ngay lập tức qua Broadcast Channel local cho Popout
+                    window.popoutBroadcastChannel.postMessage({ data: appDataState });
+
                     try {
                         channel.send({
                             type: 'broadcast',
                             event: 'tour_update',
-                            payload: { data: appDataState }
+                            payload: { data: appDataState, timestamp: nowTime }
                         });
 
                         if (dbSaveTimeout) clearTimeout(dbSaveTimeout);
                         dbSaveTimeout = setTimeout(async () => {
                             await supabaseClient
                                 .from('tournaments')
-                                .upsert({ id: 'live_state', data: appDataState, updated_at: new Date() });
+                                .upsert({ id: 'live_state', data: appDataState, updated_at: new Date(nowTime).toISOString() });
                         }, 300);
                     } catch (e) {
                         console.warn("Lỗi lưu Supabase Cloud:", e);
@@ -599,11 +616,13 @@ function App() {
 
     const activeTour = tournaments.find(t => t.id === selectedTourId) || tournaments[0] || defaultTourTemplate('SNAP HYPER', 101, 90, 90);
 
+    // DRAFT CONFIG STATE: ĐỘC LẬP TÁCH BIỆT HOÀN TOÀN KHỎI TIMER KHÔNG BỊ RE-RENDER KHI GÕ
     const [draftConfigState, setDraftConfigState] = useState(() => JSON.parse(JSON.stringify(activeTour)));
 
+    // Chỉ cập nhật nháp khi ĐỔI TOUR ID, không cập nhật khi timer chạy
     useEffect(() => {
         setDraftConfigState(JSON.parse(JSON.stringify(activeTour)));
-    }, [selectedTourId, activeTour]);
+    }, [selectedTourId]);
 
     // TÍNH TOÁN CỐ ĐỊNH GIỜ KHAI MẠC REALTIME
     useEffect(() => {
@@ -699,7 +718,11 @@ function App() {
             const currentStr = JSON.stringify(appState);
             localStorage.setItem('poker_tournaments_live_v6', currentStr);
             
-            // CHỈ GỬI LÊN CLOUD KHI ADMIN BẤM NÚT SỬA VÀ ĐÃ ĐỒNG BỘ XONG BAN ĐẦU
+            // LẮNG NGHE ĐẨY ĐỒNG BỘ POPOUT LOCAL
+            if (window.popoutBroadcastChannel) {
+                window.popoutBroadcastChannel.postMessage({ data: appState });
+            }
+
             if (userHasModified.current && window.isFirstCloudSyncDone && !isRemoteUpdating.current && currentStr !== lastLocalString.current) {
                 lastLocalString.current = currentStr;
                 userHasModified.current = false;
@@ -880,13 +903,14 @@ function App() {
     };
 
     const updateDraftFontSize = (field, val) => {
+        const numVal = val === '' ? '' : Number(val);
         setDraftConfigState(prev => ({
             ...prev,
             config: {
                 ...prev.config,
                 fontCustomSizes: {
                     ...(prev.config.fontCustomSizes || {}),
-                    [field]: Number(val)
+                    [field]: numVal
                 }
             }
         }));
@@ -1147,12 +1171,11 @@ function App() {
         }
     };
 
-    // TỐI ƯU TỐC ĐỘ MỞ POP-OUT CỬA SỔ TV THỰC THỜI 0ms (DIRECT WINDOW COPY RENDER)
+    // TỐI ƯU TỐC ĐỘ MỞ POP-OUT BẰNG BROADCAST CHANNEL + DIRECT DOM INJECTION (CHỐNG ĐỨNG 100%)
     const openSinglePopoutWindow = (targetTourId) => {
         const popoutWindow = window.open('', '_blank', 'width=1280,height=720,left=0,top=0');
         if (!popoutWindow) return;
 
-        // Sao chép toàn bộ Style và Header từ cửa sổ mẹ trực tiếp (0ms delay)
         popoutWindow.document.write(`
             <!DOCTYPE html>
             <html lang="vi">
@@ -1168,11 +1191,14 @@ function App() {
         `);
         popoutWindow.document.close();
 
-        const renderPopoutContainer = () => {
+        let currentPopoutState = appState;
+
+        const renderPopoutContainer = (stateToRender) => {
             const popoutRoot = popoutWindow.document.getElementById('popout-root');
             if (!popoutRoot) return;
 
-            const targetTour = appState.tours.find(t => t.id === targetTourId) || activeTour;
+            const targetTour = (stateToRender.tours || []).find(t => t.id === targetTourId) || (stateToRender.tours && stateToRender.tours[0]);
+            if (!targetTour) return;
 
             ReactDOM.render(
                 <div className="w-full h-full flex flex-col justify-center items-center p-0 m-0 overflow-hidden">
@@ -1182,12 +1208,22 @@ function App() {
             );
         };
 
-        renderPopoutContainer();
-        const interval = setInterval(() => {
+        renderPopoutContainer(currentPopoutState);
+
+        const channel = new BroadcastChannel('snapcall_popout_sync');
+        channel.onmessage = (event) => {
+            if (event.data && event.data.data) {
+                currentPopoutState = event.data.data;
+                renderPopoutContainer(currentPopoutState);
+            }
+        };
+
+        const timer = setInterval(() => {
             if (popoutWindow.closed) {
-                clearInterval(interval);
+                clearInterval(timer);
+                channel.close();
             } else {
-                renderPopoutContainer();
+                renderPopoutContainer(currentPopoutState);
             }
         }, 300);
     };
@@ -1277,9 +1313,10 @@ function App() {
     };
 
     const updateBlindFieldDraft = (bId, field, val) => {
+        const valueToSave = val === '' ? '' : (field === 'title' || field === 'chipRaceTitle' ? val : Number(val));
         setDraftConfigState(prev => ({
             ...prev,
-            blinds: prev.blinds.map(item => item.id === bId ? { ...item, [field]: val } : item)
+            blinds: prev.blinds.map(item => item.id === bId ? { ...item, [field]: valueToSave } : item)
         }));
     };
 
@@ -1500,7 +1537,7 @@ function App() {
                 {/* TAB BXH & TOUR */}
                 {activeView === 'combined-dashboard' && (
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start w-full">
-                        {/* BÊN TRÁI: HIỂN THỊ TINH GỌN THÔNG TIN TOUR (ĐÃ BỎ HOÀN TOÀN MỤC XEM CHI TIẾT) */}
+                        {/* BÊN TRÁI: HIỂN THỊ TINH GỌN THÔNG TIN TOUR */}
                         <div className="lg:col-span-5 space-y-4">
                             <div className="gold-border-box bg-black/90 backdrop-blur-md rounded-3xl p-5 shadow-2xl space-y-4 border border-gold/30">
                                 <div className="flex items-center justify-between border-b border-gold/30 pb-3">
@@ -1685,7 +1722,6 @@ function App() {
                             </div>
 
                             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-                                {/* CỘT TRÁI: TẠO ĐƠN VÀ CHỌN KHÁCH HÀNG */}
                                 <div className="lg:col-span-7 space-y-4">
                                     <div className="bg-gray-900/90 p-4 rounded-2xl border border-gray-800 space-y-3">
                                         <div className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
@@ -1746,7 +1782,6 @@ function App() {
                                     </div>
                                 </div>
 
-                                {/* CỘT PHẢI: GIỎ HÀNG VÀ THANH TOÁN GỘP BILL */}
                                 <div className="lg:col-span-5 space-y-4">
                                     <div className="bg-black/90 p-4 rounded-2xl border border-gold/40 flex flex-col justify-between min-h-[300px]">
                                         <div>
@@ -1791,7 +1826,7 @@ function App() {
                     </div>
                 )}
 
-                {/* MỤC 3: TOUR VIEW (YÊU CẦU ĐĂNG NHẬP ADMIN) */}
+                {/* MỤC 3: TOUR VIEW */}
                 {activeView === 'player-tv' && (
                     <div className="w-full space-y-6">
                         {tournaments.length > 1 ? (
@@ -2070,10 +2105,10 @@ function App() {
                                                                 <>
                                                                     <span className="font-bold text-gold-bright w-14 text-sm">Lvl {displayLvlNum}</span>
                                                                     <div className="flex gap-2 items-center flex-1 justify-around">
-                                                                        <div><span className="text-[9px] text-gray-400 block">SB</span><input type="number" value={b.sb} onChange={(e)=> updateBlindFieldDraft(b.id, 'sb', Number(e.target.value))} className="w-20 bg-gray-900 border border-gray-700 rounded p-1.5 text-center text-white font-bold"/></div>
-                                                                        <div><span className="text-[9px] text-gray-400 block">BB</span><input type="number" value={b.bb} onChange={(e)=> updateBlindFieldDraft(b.id, 'bb', Number(e.target.value))} className="w-20 bg-gray-900 border border-gray-700 rounded p-1.5 text-center text-white font-bold"/></div>
-                                                                        <div><span className="text-[9px] text-gray-400 block">Ante</span><input type="number" value={b.ante} onChange={(e)=> updateBlindFieldDraft(b.id, 'ante', Number(e.target.value))} className="w-20 bg-gray-900 border border-gray-700 rounded p-1.5 text-center text-white font-bold"/></div>
-                                                                        <div><span className="text-[9px] text-amber-300 font-bold block">Phút (Time)</span><input type="number" value={b.length} onChange={(e)=> updateBlindFieldDraft(b.id, 'length', Number(e.target.value))} className="w-20 bg-gray-900 border border-amber-500/50 rounded p-1.5 text-center text-amber-300 font-bold"/></div>
+                                                                        <div><span className="text-[9px] text-gray-400 block">SB</span><input type="number" value={b.sb} onChange={(e)=> updateBlindFieldDraft(b.id, 'sb', e.target.value)} className="w-20 bg-gray-900 border border-gray-700 rounded p-1.5 text-center text-white font-bold"/></div>
+                                                                        <div><span className="text-[9px] text-gray-400 block">BB</span><input type="number" value={b.bb} onChange={(e)=> updateBlindFieldDraft(b.id, 'bb', e.target.value)} className="w-20 bg-gray-900 border border-gray-700 rounded p-1.5 text-center text-white font-bold"/></div>
+                                                                        <div><span className="text-[9px] text-gray-400 block">Ante</span><input type="number" value={b.ante} onChange={(e)=> updateBlindFieldDraft(b.id, 'ante', e.target.value)} className="w-20 bg-gray-900 border border-gray-700 rounded p-1.5 text-center text-white font-bold"/></div>
+                                                                        <div><span className="text-[9px] text-amber-300 font-bold block">Phút (Time)</span><input type="number" value={b.length} onChange={(e)=> updateBlindFieldDraft(b.id, 'length', e.target.value)} className="w-20 bg-gray-900 border border-amber-500/50 rounded p-1.5 text-center text-amber-300 font-bold"/></div>
                                                                     </div>
                                                                 </>
                                                             ) : (
@@ -2092,7 +2127,7 @@ function App() {
                                                                         </div>
                                                                         <div>
                                                                             <span className="text-[9px] text-amber-300 font-bold block">Phút (Time)</span>
-                                                                            <input type="number" value={b.length} onChange={(e)=> updateBlindFieldDraft(b.id, 'length', Number(e.target.value))} className="w-20 bg-gray-900 border border-amber-500/50 rounded px-2 py-1 text-center text-amber-300 font-bold text-xs"/>
+                                                                            <input type="number" value={b.length} onChange={(e)=> updateBlindFieldDraft(b.id, 'length', e.target.value)} className="w-20 bg-gray-900 border border-amber-500/50 rounded px-2 py-1 text-center text-amber-300 font-bold text-xs"/>
                                                                         </div>
                                                                     </div>
                                                                     {b.isChipRace && (
@@ -2123,7 +2158,7 @@ function App() {
                                                 <div key={idx} className="flex items-center gap-2 bg-black/40 p-2.5 rounded-lg border border-gray-800">
                                                     <input type="text" value={p.place} onChange={(e)=>{const v=e.target.value; const newP = draftConfigState.payouts.map((item,i)=>i===idx?{...item, place:v}:item); setDraftConfigState(prev=>({...prev, payouts: newP}));}} className="w-28 bg-gray-900 border border-gray-700 rounded-lg p-2 text-white font-semibold text-center text-base" />
                                                     <span className="text-gray-400 font-bold">Điểm / Token:</span>
-                                                    <input type="number" step="0.1" value={p.value} onChange={(e)=>{const v=Number(e.target.value); const newP = draftConfigState.payouts.map((item,i)=>i===idx?{...item, value:v}:item); setDraftConfigState(prev=>({...prev, payouts: newP}));}} className="flex-1 bg-gray-900 border border-gray-700 rounded-lg p-2 text-white text-center font-bold text-base" />
+                                                    <input type="number" step="0.1" value={p.value} onChange={(e)=>{const v=e.target.value === '' ? '' : Number(e.target.value); const newP = draftConfigState.payouts.map((item,i)=>i===idx?{...item, value:v}:item); setDraftConfigState(prev=>({...prev, payouts: newP}));}} className="flex-1 bg-gray-900 border border-gray-700 rounded-lg p-2 text-white text-center font-bold text-base" />
                                                     <button onClick={() => removePayoutItemDraft(idx)} className="text-red-400 hover:text-red-300 font-bold px-2">✕</button>
                                                 </div>
                                             ))}
@@ -2204,8 +2239,8 @@ function App() {
                                                         <input type="number" value={fontCustomSizes.headerPx} onChange={(e)=> updateDraftFontSize('headerPx', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white font-bold text-center" />
                                                     </div>
                                                     <div>
-                                                        <span className="text-xs text-gray-400 block mb-1">Sub-Header / Info (px)</span>
-                                                        <input type="number" value={fontCustomSizes.tourInfoPx || fontCustomSizes.subHeaderPx} onChange={(e)=> { updateDraftFontSize('subHeaderPx', e.target.value); updateDraftFontSize('tourInfoPx', e.target.value); }} className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white font-bold text-center" />
+                                                        <span className="text-xs text-amber-300 font-bold block mb-1">Buyin / Stack / RegEnd (px)</span>
+                                                        <input type="number" value={fontCustomSizes.tourInfoPx || fontCustomSizes.subHeaderPx} onChange={(e)=> { updateDraftFontSize('subHeaderPx', e.target.value); updateDraftFontSize('tourInfoPx', e.target.value); }} className="w-full bg-gray-900 border border-amber-500/50 rounded p-2 text-amber-300 font-extrabold text-center" />
                                                     </div>
                                                     <div>
                                                         <span className="text-xs text-gray-400 block mb-1">Level Badge (px)</span>
