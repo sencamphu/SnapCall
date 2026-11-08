@@ -53,7 +53,7 @@
                         const recordTime = data.updated_at ? new Date(data.updated_at).getTime() : Date.now();
                         window.lastCloudTimestamp = recordTime;
                         window.isFirstCloudSyncDone = true;
-                        // TỰ ĐỘNG CẬP NHẬT TRỰC TIẾP NGAY KHI VÀO WEB (KHÔNG CẦN BẤM PAUSE/START)
+                        // ÉP NHẬN DỮ LIỆU CLOUD NGAY KHI VÀO WEB (KHÔNG BỊ GIỮ CACHE CŨ)
                         onDataReceived(data.data, true);
                     } else {
                         window.isFirstCloudSyncDone = true;
@@ -680,7 +680,7 @@ function App() {
         });
     };
 
-    // ĐỒNG BỘ REALTIME TỰ ĐỘNG KHI THIẾT BỊ MỚI VÀO (TỰ ĐỘNG RENDER KHÔNG CẦN BẤM BUTTON)
+    // ĐỒNG BỘ REALTIME TỰ ĐỘNG KHI THIẾT BỊ MỚI VÀO - ĐÃ SỬA DỨT ĐIỂM ÉP 100% THIẾT BỊ MỚI NHẬN TOUR ĐANG CHẠY
     useEffect(() => {
         if (window.initCloudSync) {
             window.initCloudSync(
@@ -690,20 +690,11 @@ function App() {
                         if (Array.isArray(cloudState)) {
                             normalizedState = { tours: cloudState, presets: [], selectedTourId: cloudState[0]?.id || 101 };
                         }
-                        const newStr = JSON.stringify(normalizedState);
-                        if (newStr !== lastLocalString.current) {
-                            isRemoteUpdating.current = true;
-                            lastLocalString.current = newStr;
-                            setAppState(prev => {
-                                const tourExists = normalizedState.tours?.some(t => t.id === prev.selectedTourId);
-                                const validTourId = tourExists ? prev.selectedTourId : (normalizedState.tours[0]?.id || 101);
-                                return {
-                                    ...normalizedState,
-                                    selectedTourId: validTourId
-                                };
-                            });
-                            setTimeout(() => { isRemoteUpdating.current = false; }, 300);
-                        }
+                        
+                        isRemoteUpdating.current = true;
+                        lastLocalString.current = JSON.stringify(normalizedState);
+                        setAppState(normalizedState);
+                        setTimeout(() => { isRemoteUpdating.current = false; }, 300);
                     }
                 },
                 (status) => setIsCloudSynced(status)
@@ -830,7 +821,7 @@ function App() {
         }
     };
 
-    // ĐỒNG BỘ ĐỒNG HỒ REALTIME TỰ ĐỘNG CHẮC CHẮN KHÔNG LÀM NHẢY THAY ĐỔI STATS
+    // ĐỒNG BỘ ĐỒNG HỒ REALTIME TỰ ĐỘNG KHÔNG LÀM NHẢY THAY ĐỔI STATS
     useEffect(() => {
         const timer = setInterval(() => {
             const now = Date.now();
@@ -2212,7 +2203,6 @@ function App() {
                                             </div>
                                         </div>
 
-                                        {/* THU GỌN BẬT/ẨN CHỈNH KÍCH THƯỚC FONT PIXEL - ĐÃ BỔ SUNG ĐỦ TẤT CẢ MỤC */}
                                         <div className="pt-2 border-t border-gray-800 space-y-3">
                                             <button
                                                 type="button"
@@ -2306,7 +2296,7 @@ function App() {
                                     
                                     <button 
                                         onClick={applyDraftChangesToLive} 
-                                        className="w-full sm:w-auto px-6 py-3 sm:py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white text-xs font-extrabold shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
+                                        className="w-full sm:w-auto px-6 py-3 sm:py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white text-xs font-extrabold shadow-lg transition cursor-pointer items-center gap-2"
                                     >
                                         <i className="fa-solid fa-floppy-disk"></i> CẬP NHẬT HỆ THỐNG & NẠP TV VIEW
                                     </button>
@@ -2374,7 +2364,7 @@ function App() {
                                             <button onClick={() => handleStatChange(field, 1)} className="w-8 h-8 bg-amber-500 hover:bg-amber-400 rounded-lg font-extrabold text-sm text-black">+</button>
                                         </div>
                                     </div>
-                                ))}
+                                me))}
                             </div>
                         </div>
                     </div>
