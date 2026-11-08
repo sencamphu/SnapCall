@@ -164,6 +164,21 @@ html, body {
         url('https://images.unsplash.com/photo-1511193311914-0346f16efe90?auto=format&fit=crop&w=1920&q=80') center/cover no-repeat;
 }
 
+/* Các hiệu ứng đường line ánh vàng phát sáng chuẩn Mẫu 185 Pro */
+.gold-glow-line {
+    border-bottom: 1px solid rgba(212, 175, 55, 0.4);
+    box-shadow: 0 1px 12px rgba(212, 175, 55, 0.4);
+}
+.gold-glow-border {
+    border: 1px solid rgba(212, 175, 55, 0.45);
+    box-shadow: inset 0 0 20px rgba(212, 175, 55, 0.15), 0 0 25px rgba(212, 175, 55, 0.2);
+}
+.golden-arc-divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, #D4AF37 50%, transparent 100%);
+    box-shadow: 0 0 10px rgba(212, 175, 55, 0.6);
+}
+
 .gold-border-box {
     border: 1px solid rgba(212, 175, 55, 0.35);
     box-shadow: inset 0 0 35px rgba(212, 175, 55, 0.08), 0 15px 50px rgba(0, 0, 0, 0.95);
@@ -210,6 +225,16 @@ const fontOptions = [
 ];
 
 const colorThemes = [
+    {
+        id: '185-snapcall-pro',
+        label: 'Mẫu Đặc Biệt: Snap Call TV Gold (Phong cách 185 Pro)',
+        timerColor: '#FFFEE9',
+        blindsColor: '#FACC15',
+        headerColor: '#F8E5A1',
+        statsColor: '#FFFFFF',
+        timerGlow: '0 0 35px rgba(255, 254, 233, 0.7), 0 0 70px rgba(212, 175, 55, 0.4)',
+        isTheme185: true
+    },
     {
         id: 'tnt-gold',
         label: 'Mẫu 1: Royal Gold & Ivory',
@@ -306,28 +331,29 @@ const defaultTourTemplate = (name, id, buyIn, rebuyPrice) => ({
     config: {
         showClubName: true,
         showSubTitle: true,
+        showEagleLogo: true,
         clubName: 'SNAP CALL',
         subTitle: 'BOARD GAME & COFFEE',
-        name: name || 'MONTER STACK',
+        name: name || 'SUPER HIGH ROLLER',
         scheduledStartDate: getTodayDateString(),
         scheduledStartTime: '13:00',
         enableScheduledTimer: true,
         maxLeaderboardTop: 10,
-        buyIn: buyIn || 100,
+        buyIn: buyIn || 130,
         currency: 'TOKEN',
         fee: 0,
-        startingStack: 25000,
+        startingStack: 100000,
         maxPlayersPerTable: 10,
         allowRebuys: true,
-        rebuyPrice: rebuyPrice || 100,
-        regEndLevel: 11,
+        rebuyPrice: rebuyPrice || 130,
+        regEndLevel: 12,
         logoSizePx: 80,
         qrSizePx: 70,
         bgImageUrl: '',
         logoUrl: '',
         qrCodeUrl: '',
         selectedFont: 'font-montserrat',
-        colorTheme: 'tnt-gold',
+        colorTheme: '185-snapcall-pro',
         fontCustomSizes: {
             brandPx: 30,
             headerPx: 56,
@@ -344,12 +370,11 @@ const defaultTourTemplate = (name, id, buyIn, rebuyPrice) => ({
     blinds: JSON.parse(JSON.stringify(defaultBlinds)),
     payoutMode: 'fixed',
     payouts: [
-        { place: 'Top 1', value: 10 },
-        { place: 'Top 2', value: 6.5 },
-        { place: 'Top 3', value: 4.5 },
-        { place: 'Top 4', value: 3 },
-        { place: 'Top 5', value: 2 },
-        { place: 'Top 6', value: 1 }
+        { place: '1.', value: 10 },
+        { place: '2.', value: 6.5 },
+        { place: '3.', value: 4.5 },
+        { place: '4.', value: 3 },
+        { place: '5.', value: 2 }
     ],
     soundsConfig: {
         nextLevel: 'Boxing Bell',
@@ -358,11 +383,11 @@ const defaultTourTemplate = (name, id, buyIn, rebuyPrice) => ({
         warning10s: 'Digital Beep'
     },
     gameStats: {
-        buyIns: 9,
-        eliminated: 4,
-        rebuys: 5,
-        currentStepIdx: 1,
-        secondsLeft: 611,
+        buyIns: 25,
+        eliminated: 1,
+        rebuys: 17,
+        currentStepIdx: 6,
+        secondsLeft: 454,
         targetEndTime: null,
         isPaused: true,
         isFinished: false
@@ -445,7 +470,7 @@ const playSoundEffect = (soundType) => {
 
 function TournamentTVCard({ tour, openSinglePopout, isStandaloneTVMode }) {
     if (!tour) return null;
-    const currentStep = (tour.blinds && tour.blinds[tour.gameStats.currentStepIdx]) || (tour.blinds && tour.blinds[0]) || { type: 'level', sb: 100, bb: 100, ante: 100 };
+    const currentStep = (tour.blinds && tour.blinds[tour.gameStats.currentStepIdx]) || (tour.blinds && tour.blinds[0]) || { type: 'level', sb: 800, bb: 1600, ante: 1600 };
 
     const getCalculatedLevelNumber = (blindsList, stepIndex) => {
         let levelNum = 0;
@@ -470,7 +495,7 @@ function TournamentTVCard({ tour, openSinglePopout, isStandaloneTVMode }) {
         if (!t.blinds) return 'END GAME';
         for (let i = t.gameStats.currentStepIdx + 1; i < t.blinds.length; i++) {
             if (t.blinds[i].type === 'level') {
-                return `${(t.blinds[i].sb || 0).toLocaleString()}/${(t.blinds[i].bb || 0).toLocaleString()}`;
+                return `${(t.blinds[i].sb || 0).toLocaleString()} / ${(t.blinds[i].bb || 0).toLocaleString()}`;
             } else if (t.blinds[i].type === 'break') {
                 return 'Break Time';
             }
@@ -494,7 +519,7 @@ function TournamentTVCard({ tour, openSinglePopout, isStandaloneTVMode }) {
     const currentLevelNum = getCalculatedLevelNumber(tour.blinds, tour.gameStats.currentStepIdx);
     const totalEntries = (tour.gameStats.buyIns || 0) + (tour.gameStats.rebuys || 0);
     const totalPointsFromPayouts = (tour.payouts || []).reduce((sum, p) => sum + (Number(p.value) || 0), 0);
-    const totalChipsInPlay = totalEntries * (tour.config.startingStack || 25000);
+    const totalChipsInPlay = totalEntries * (tour.config.startingStack || 100000);
     const playersLeft = Math.max(0, (tour.gameStats.buyIns || 0) - (tour.gameStats.eliminated || 0));
     const avgStack = playersLeft > 0 ? Math.round(totalChipsInPlay / playersLeft) : 0;
     const nextBreakTime = formatTimeHHMMSS(getSecondsToNextBreak(tour));
@@ -504,10 +529,11 @@ function TournamentTVCard({ tour, openSinglePopout, isStandaloneTVMode }) {
     const selectedFontClass = tour.config.selectedFont || 'font-montserrat';
     const logoSize = tour.config.logoSizePx || 80;
     const qrSize = tour.config.qrSizePx || 70;
+    const isTheme185 = themeStyle.isTheme185;
 
     return (
         <div
-            className={`w-full gold-border-box rounded-3xl bg-black/85 backdrop-blur-md p-4 sm:p-6 md:p-8 relative overflow-hidden shadow-2xl flex flex-col justify-between ${selectedFontClass} ${isStandaloneTVMode ? 'h-screen min-h-screen rounded-none border-none p-6 md:p-10' : 'min-h-[82vh] lg:min-h-[85vh]'} my-auto`}
+            className={`w-full gold-border-box rounded-3xl bg-black/90 backdrop-blur-md p-4 sm:p-6 md:p-8 relative overflow-hidden shadow-2xl flex flex-col justify-between ${selectedFontClass} ${isStandaloneTVMode ? 'h-screen min-h-screen rounded-none border-none p-6 md:p-10' : 'min-h-[82vh] lg:min-h-[85vh]'} my-auto`}
             style={{
                 backgroundImage: tour.config.bgImageUrl ? `url(${tour.config.bgImageUrl})` : 'none',
                 backgroundSize: 'cover',
@@ -531,36 +557,46 @@ function TournamentTVCard({ tour, openSinglePopout, isStandaloneTVMode }) {
             )}
 
             <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 lg:gap-4 items-center flex-1 w-full my-auto">
+                {/* CỘT GIỮA: LOGO + TITLE + ĐỒNG HỒ (THUẬN MẮT THEO 185) */}
                 <div className="w-full lg:col-span-6 lg:order-2 text-center space-y-3 sm:space-y-4 my-auto px-1">
                     <div className="text-center mb-1">
+                        {/* ICON ĐẠI BÀNG (CENTRAL LOGO SNAP CALL - TÙY CHỌN AN-HIEN) */}
+                        {tour.config.showEagleLogo !== false && (
+                            <div className="flex justify-center mb-2">
+                                <div className="w-14 h-14 rounded-full border border-gold/40 flex items-center justify-center bg-black/60 shadow-lg shadow-gold/10">
+                                    <i className="fa-solid fa-feather-pointed text-gold text-2xl drop-shadow-[0_0_8px_rgba(212,175,55,0.8)]"></i>
+                                </div>
+                            </div>
+                        )}
+
                         {(tour.config.showClubName !== false || tour.config.showSubTitle !== false) && (
-                            <div className="flex flex-col items-center mb-1.5">
+                            <div className="flex flex-col items-center mb-1">
                                 {tour.config.showClubName !== false && (
-                                    <div className="text-gold font-extrabold tracking-[0.2em] font-cinzel text-center" style={{ fontSize: `${fontSizes.brandPx || 30}px` }}>
+                                    <div className="text-gold font-black tracking-[0.2em] font-cinzel text-center drop-shadow" style={{ fontSize: `${fontSizes.brandPx || 30}px` }}>
                                         {tour.config.clubName || 'SNAP CALL'}
                                     </div>
                                 )}
                                 {tour.config.showSubTitle !== false && (
-                                    <div className="text-[10px] sm:text-xs text-gold/80 tracking-[0.25em] font-semibold uppercase border-t border-b border-gold/30 px-3 py-0.5 mt-1" style={{ fontSize: `${fontSizes.subHeaderPx || 18}px` }}>
+                                    <div className="text-[10px] sm:text-xs text-gold/80 tracking-[0.25em] font-semibold uppercase px-3 py-0.5 mt-0.5" style={{ fontSize: `${fontSizes.subHeaderPx || 18}px` }}>
                                         — {tour.config.subTitle || 'BOARD GAME & COFFEE'} —
                                     </div>
                                 )}
                             </div>
                         )}
 
-                        <div className="font-black uppercase tracking-wider mb-2 font-cinzel text-center leading-tight" style={{ fontSize: `${fontSizes.headerPx || 56}px`, color: themeStyle.headerColor }}>
+                        <div className="font-black uppercase tracking-wider mb-2 font-cinzel text-center leading-tight drop-shadow-md" style={{ fontSize: `${fontSizes.headerPx || 56}px`, color: themeStyle.headerColor }}>
                             {tour.config.name}
                         </div>
 
-                        <div className="flex flex-wrap justify-center items-center gap-x-3 sm:gap-x-6 text-gray-200 font-medium tracking-wide bg-black/40 py-1.5 px-3 rounded-xl border border-gold/20 max-w-xl mx-auto" style={{ fontSize: `${fontSizes.tourInfoPx || 18}px` }}>
+                        <div className={`flex flex-wrap justify-center items-center gap-x-4 sm:gap-x-6 text-gray-200 font-medium tracking-wide py-1.5 px-4 max-w-xl mx-auto ${isTheme185 ? 'bg-transparent text-gray-200 font-bold' : 'bg-black/40 rounded-xl border border-gold/20'}`} style={{ fontSize: `${fontSizes.tourInfoPx || 18}px` }}>
                             <div>Buyin: <span className="text-white font-bold">{tour.config.buyIn}</span></div>
                             <div>Rebuy: <span className="text-white font-bold">{tour.config.rebuyPrice}</span></div>
-                            <div>Stack: <span className="text-white font-bold">{(tour.config.startingStack || 25000).toLocaleString()}</span></div>
+                            <div>Stack: <span className="text-white font-bold">{(tour.config.startingStack || 100000).toLocaleString()}</span></div>
                             <div>Reg End: <span className="text-white font-bold">Level {tour.config.regEndLevel}</span></div>
                         </div>
                     </div>
 
-                    <div className="inline-block border border-gold/40 rounded-2xl px-5 py-1 bg-black/60 shadow-lg">
+                    <div className="inline-block border border-gold/50 rounded-2xl px-6 py-1 bg-black/60 shadow-lg">
                         <span className="font-bold text-gray-100 tracking-widest uppercase block text-center" style={{ fontSize: `${fontSizes.levelBadgePx || 22}px` }}>
                             {tour.gameStats.isFinished
                                 ? '🏆 TOUR FINISHED'
@@ -602,56 +638,60 @@ function TournamentTVCard({ tour, openSinglePopout, isStandaloneTVMode }) {
                         </div>
                     )}
 
-                    <div className="w-full max-w-sm mx-auto border-b border-gold/30 my-2"></div>
+                    {/* ĐƯỜNG KẺ UỐN CONG ÁNH VÀNG PHÂN CÁCH ĐÁY CỘT GIỮA (185 PRO) */}
+                    <div className="w-full max-w-md mx-auto golden-arc-divider my-3"></div>
 
-                    <div className="text-gray-200 font-medium tracking-wide" style={{ fontSize: `${fontSizes.nextLevelPx || 46}px` }}>
+                    <div className="text-gray-300 font-medium tracking-wide" style={{ fontSize: `${fontSizes.nextLevelPx || 46}px` }}>
                         Next: <span className="text-white font-semibold">{tour.gameStats.isFinished ? 'END GAME' : getNextLevelInfo(tour)}</span>
                     </div>
                 </div>
 
-                <div className="w-full lg:col-span-3 lg:order-1 grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-col gap-3 text-left border-t lg:border-t-0 lg:border-l border-gold/20 pt-4 lg:pt-0 lg:pl-4">
-                    <div className="bg-black/50 p-3 rounded-2xl border border-gray-800">
-                        <div className="text-gray-400 font-bold tracking-wider uppercase mb-0.5" style={{ fontSize: `${Math.max(10, (fontSizes.statsPx || 30) - 12)}px` }}>PLAYERS</div>
+                {/* CỘT TRÁI: STATS (XÓA VIỀN Ô ĐEN NẾU CHỌN THEME 185) */}
+                <div className={`w-full lg:col-span-3 lg:order-1 grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-col gap-3.5 text-left ${isTheme185 ? 'border-none' : 'border-t lg:border-t-0 lg:border-l border-gold/20 pt-4 lg:pt-0 lg:pl-4'}`}>
+                    <div className={`${isTheme185 ? 'bg-transparent py-1' : 'bg-black/50 p-3 rounded-2xl border border-gray-800'}`}>
+                        <div className="text-gray-400 font-bold tracking-wider uppercase mb-0.5" style={{ fontSize: `${Math.max(11, (fontSizes.statsPx || 30) - 14)}px` }}>PLAYERS</div>
                         <div className="text-white font-black" style={{ fontSize: `${fontSizes.statsPx || 30}px` }}>{playersLeft} / {tour.gameStats.buyIns}</div>
                     </div>
 
-                    <div className="bg-black/50 p-3 rounded-2xl border border-gray-800">
-                        <div className="text-gray-400 font-bold tracking-wider uppercase mb-0.5" style={{ fontSize: `${Math.max(10, (fontSizes.statsPx || 30) - 12)}px` }}>RE-BUY</div>
+                    <div className={`${isTheme185 ? 'bg-transparent py-1' : 'bg-black/50 p-3 rounded-2xl border border-gray-800'}`}>
+                        <div className="text-gray-400 font-bold tracking-wider uppercase mb-0.5" style={{ fontSize: `${Math.max(11, (fontSizes.statsPx || 30) - 14)}px` }}>RE-BUY</div>
                         <div className="text-white font-black" style={{ fontSize: `${fontSizes.statsPx || 30}px` }}>{tour.gameStats.rebuys}</div>
                     </div>
 
-                    <div className="bg-black/50 p-3 rounded-2xl border border-gray-800">
-                        <div className="text-gray-400 font-bold tracking-wider uppercase mb-0.5" style={{ fontSize: `${Math.max(10, (fontSizes.statsPx || 30) - 12)}px` }}>TOTAL ENTRIES</div>
+                    <div className={`${isTheme185 ? 'bg-transparent py-1' : 'bg-black/50 p-3 rounded-2xl border border-gray-800'}`}>
+                        <div className="text-gray-400 font-bold tracking-wider uppercase mb-0.5" style={{ fontSize: `${Math.max(11, (fontSizes.statsPx || 30) - 14)}px` }}>TOTAL ENTRIES</div>
                         <div className="text-white font-black" style={{ fontSize: `${fontSizes.statsPx || 30}px` }}>{totalEntries}</div>
                     </div>
 
-                    <div className="bg-black/50 p-3 rounded-2xl border border-gray-800">
-                        <div className="text-gray-400 font-bold tracking-wider uppercase mb-0.5" style={{ fontSize: `${Math.max(10, (fontSizes.statsPx || 30) - 12)}px` }}>TOTAL STACK</div>
+                    <div className={`${isTheme185 ? 'bg-transparent py-1' : 'bg-black/50 p-3 rounded-2xl border border-gray-800'}`}>
+                        <div className="text-gray-400 font-bold tracking-wider uppercase mb-0.5" style={{ fontSize: `${Math.max(11, (fontSizes.statsPx || 30) - 14)}px` }}>TOTAL STACK</div>
                         <div className="text-white font-black" style={{ fontSize: `${fontSizes.statsPx || 30}px` }}>{totalChipsInPlay.toLocaleString()}</div>
                     </div>
 
-                    <div className="bg-black/50 p-3 rounded-2xl border border-gray-800">
-                        <div className="text-gray-400 font-bold tracking-wider uppercase mb-0.5" style={{ fontSize: `${Math.max(10, (fontSizes.statsPx || 30) - 12)}px` }}>AVG STACK</div>
+                    <div className={`${isTheme185 ? 'bg-transparent py-1' : 'bg-black/50 p-3 rounded-2xl border border-gray-800'}`}>
+                        <div className="text-gray-400 font-bold tracking-wider uppercase mb-0.5" style={{ fontSize: `${Math.max(11, (fontSizes.statsPx || 30) - 14)}px` }}>AVG STACK</div>
                         <div className="text-white font-black" style={{ fontSize: `${fontSizes.statsPx || 30}px` }}>{avgStack.toLocaleString()}</div>
                     </div>
 
-                    <div className="bg-black/50 p-3 rounded-2xl border border-gray-800 lg:pt-2.5">
-                        <div className="text-gray-400 font-bold tracking-wider uppercase mb-0.5" style={{ fontSize: `${Math.max(10, (fontSizes.statsPx || 30) - 12)}px` }}>NEXT BREAK</div>
+                    <div className={`${isTheme185 ? 'bg-transparent py-1' : 'bg-black/50 p-3 rounded-2xl border border-gray-800 lg:pt-2.5'}`}>
+                        <div className="text-gray-400 font-bold tracking-wider uppercase mb-0.5" style={{ fontSize: `${Math.max(11, (fontSizes.statsPx || 30) - 14)}px` }}>NEXT BREAK</div>
                         <div className="text-white font-black" style={{ fontSize: `${fontSizes.statsPx || 30}px` }}>{nextBreakTime}</div>
                     </div>
                 </div>
 
-                <div className="w-full lg:col-span-3 lg:order-3 text-right flex flex-col justify-center h-full border-t lg:border-t-0 border-gold/20 pt-4 lg:pt-0 my-auto">
-                    <div className="w-full text-center lg:text-right my-auto bg-black/50 p-4 rounded-2xl border border-gray-800">
-                        <div className="text-gray-400 font-semibold tracking-widest uppercase mb-1" style={{ fontSize: `${Math.max(10, (fontSizes.payoutsPx || 24) - 6)}px` }}>PRIZE POOL</div>
-
-                        <div className="font-black text-gold-bright tracking-tight mb-3" style={{ fontSize: `${(fontSizes.payoutsPx || 24) + 10}px` }}>
-                            {totalPointsFromPayouts.toLocaleString()} TOKEN
+                {/* CỘT PHẢI: PRIZE POOL & PAYOUTS (BO KHUNG CONG ÁNH VÀNG CHUẨN 185) */}
+                <div className={`w-full lg:col-span-3 lg:order-3 text-right flex flex-col justify-center h-full ${isTheme185 ? 'border-none' : 'border-t lg:border-t-0 border-gold/20 pt-4 lg:pt-0'} my-auto`}>
+                    <div className={`w-full text-center lg:text-right my-auto ${isTheme185 ? 'bg-transparent p-2' : 'bg-black/50 p-4 rounded-2xl border border-gray-800'}`}>
+                        <div className={`${isTheme185 ? 'gold-glow-border rounded-2xl p-3 mb-4 bg-black/40 text-center' : ''}`}>
+                            <div className="text-gray-300 font-bold tracking-widest uppercase mb-1" style={{ fontSize: `${Math.max(11, (fontSizes.payoutsPx || 24) - 6)}px` }}>PRIZE POOL</div>
+                            <div className="font-black text-white tracking-tight text-shadow-gold" style={{ fontSize: `${(fontSizes.payoutsPx || 24) + 10}px` }}>
+                                {totalPointsFromPayouts.toLocaleString()} TOKEN
+                            </div>
                         </div>
 
-                        <div className="space-y-2 text-left border-t border-gray-800 pt-3 max-w-xs mx-auto lg:ml-auto" style={{ fontSize: `${fontSizes.payoutsPx || 24}px` }}>
+                        <div className="space-y-2.5 text-left max-w-xs mx-auto lg:ml-auto" style={{ fontSize: `${fontSizes.payoutsPx || 24}px` }}>
                             {(tour.payouts || []).map((p, idx) => (
-                                <div key={idx} className="flex justify-between items-center font-bold px-1">
+                                <div key={idx} className="flex justify-between items-center font-bold px-2 py-0.5">
                                     <span className="text-gray-300">{p.place}</span>
                                     <span className="text-white">{p.value}</span>
                                 </div>
@@ -660,7 +700,7 @@ function TournamentTVCard({ tour, openSinglePopout, isStandaloneTVMode }) {
                     </div>
 
                     {tour.config.qrCodeUrl && (
-                        <div className="mt-3 pt-2 border-t border-gray-800 flex justify-end items-center gap-3">
+                        <div className="mt-3 pt-2 flex justify-end items-center gap-3">
                             <div className="text-right">
                                 <div className="text-[11px] font-bold uppercase" style={{ color: themeStyle.blindsColor }}>Quét QR</div>
                                 <div className="text-[9px] text-gray-400">Đăng ký & thông tin</div>
@@ -671,7 +711,7 @@ function TournamentTVCard({ tour, openSinglePopout, isStandaloneTVMode }) {
                 </div>
             </div>
 
-            <div className="mt-4 pt-3 border-t border-gray-800 flex flex-col sm:flex-row justify-between items-center text-[11px] text-gray-400 font-medium gap-1">
+            <div className="mt-4 pt-3 border-t border-gray-900 flex flex-col sm:flex-row justify-between items-center text-[11px] text-gray-400 font-medium gap-1">
                 <div>SNAP CALL • BOARD GAME & COFFEE • EST. 2026</div>
                 <div>Professional Poker Tournament System</div>
             </div>
@@ -686,6 +726,7 @@ function App() {
     const [activeView, setActiveView] = useState('combined-dashboard');
     const [wizardStep, setWizardStep] = useState(1);
     const [isCloudSynced, setIsCloudSynced] = useState(false);
+    const [isCloudLoaded, setIsCloudLoaded] = useState(false); // Cờ chặn ghi đè từ máy mới
     const [draggedBlindIdx, setDraggedBlindIdx] = useState(null);
     const [searchPhoneInput, setSearchPhoneInput] = useState('');
     const [searchResultPlayer, setSearchResultPlayer] = useState(null);
@@ -712,7 +753,7 @@ function App() {
         }
         return {
             tours: [
-                defaultTourTemplate('MONTER STACK', 101, 100, 100)
+                defaultTourTemplate('SUPER HIGH ROLLER', 101, 130, 130)
             ],
             presets: [],
             lastUpdated: Date.now()
@@ -734,7 +775,7 @@ function App() {
         }
     }, []);
 
-    const tournaments = (appState && appState.tours && appState.tours.length > 0) ? appState.tours : [defaultTourTemplate('MONTER STACK', 101, 100, 100)];
+    const tournaments = (appState && appState.tours && appState.tours.length > 0) ? appState.tours : [defaultTourTemplate('SUPER HIGH ROLLER', 101, 130, 130)];
     const presets = (appState && appState.presets) ? appState.presets : [];
 
     const activePublicTour = tournaments.find(t => t.id === publicViewTourId) || tournaments[0];
@@ -746,7 +787,7 @@ function App() {
         if (activeAdminTour) {
             setDraftConfigState(JSON.parse(JSON.stringify(activeAdminTour)));
         }
-    }, [adminSetupTourId, activeAdminTour ? activeAdminTour.id : 0, appState.lastUpdated]);
+    }, [adminSetupTourId, activeAdminTour ? activeAdminTour.id : 0]);
 
     // Tự động kiểm tra và gán Tour ID hợp lệ khi danh sách Tour từ Cloud cập nhật
     useEffect(() => {
@@ -764,6 +805,7 @@ function App() {
         if (window.initCloudSync) {
             window.initCloudSync(
                 (cloudState) => {
+                    setIsCloudLoaded(true); // Đã kết nối & nạp Cloud thành công
                     if (cloudState && cloudState.tours && Array.isArray(cloudState.tours) && cloudState.tours.length > 0) {
                         setAppState(prevState => {
                             const cloudTime = cloudState.lastUpdated || 0;
@@ -781,11 +823,12 @@ function App() {
         }
     }, []);
 
+    // Chỉ cho phép lưu lên Cloud khi đã nạp dữ liệu thành công (Ngăn máy mới ghi đè)
     useEffect(() => {
-        if (appState && appState.tours && appState.tours.length > 0 && window.saveAppStateToCloud) {
+        if (isCloudLoaded && appState && appState.tours && appState.tours.length > 0 && window.saveAppStateToCloud) {
             window.saveAppStateToCloud(appState);
         }
-    }, []);
+    }, [isCloudLoaded, appState]);
 
     useEffect(() => {
         const calcRemaining = () => {
@@ -2052,6 +2095,28 @@ function App() {
                                                 <label className="block text-gray-300 mb-1.5 font-semibold">Tên Giải Đấu (Tour Title)</label>
                                                 <input type="text" value={draftConfigState.config.name} onChange={(e) => updateDraftConfig('name', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3.5 text-white font-bold text-base" />
                                             </div>
+                                        </div>
+
+                                        {/* CÔNG TẮC BẬT TẮT LOGO ĐẠI BÀNG CHÍNH GIỮA */}
+                                        <div className="bg-amber-950/40 p-4 rounded-2xl border border-amber-500/40 flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-full border border-gold/50 flex items-center justify-center bg-black">
+                                                    <i className="fa-solid fa-feather-pointed text-gold"></i>
+                                                </div>
+                                                <div>
+                                                    <div className="text-amber-300 font-bold text-sm">Logo Đại Bàng Central (Mẫu 185 Pro)</div>
+                                                    <div className="text-xs text-gray-400">Hiển thị logo biểu tượng chính giữa phía trên tên giải đấu</div>
+                                                </div>
+                                            </div>
+                                            <label className="flex items-center gap-2 cursor-pointer bg-black/60 px-4 py-2 rounded-xl border border-gold/30">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={draftConfigState.config.showEagleLogo !== false}
+                                                    onChange={(e) => updateDraftConfig('showEagleLogo', e.target.checked)}
+                                                    className="rounded text-amber-500 focus:ring-0 w-4 h-4"
+                                                />
+                                                <span className="text-xs font-bold text-white">{draftConfigState.config.showEagleLogo !== false ? 'Đang BẬT' : 'Đang TẮT'}</span>
+                                            </label>
                                         </div>
 
                                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-amber-950/30 p-5 rounded-2xl border border-amber-500/40">
