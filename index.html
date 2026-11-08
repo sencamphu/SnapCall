@@ -38,7 +38,7 @@ window.initCloudSync = async function(onDataReceived, onSyncStatusChange) {
         window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         onSyncStatusChange(true);
 
-        // 1. Tải dữ liệu chuẩn từ Supabase Cloud khi vừa khởi chạy
+        // 1. Tải dữ liệu chuẩn từ Supabase Cloud ngay khi vừa khởi chạy
         const fetchData = async () => {
             try {
                 const { data, error } = await window.supabaseClient
@@ -573,14 +573,22 @@ function TournamentTVCard({ tour, openSinglePopout, isStandaloneTVMode }) {
                         )}
                     </div>
 
-                    {/* HIỂN THỊ BLINDS / BREAK TIME (LOẠI BỎ HOÀN TOÀN DÒNG RACE CHIP TRONG TV VIEW) */}
+                    {/* HIỂN THỊ BLINDS / BREAK TIME & KHÔI PHỤC CHIP RACE CHO DEALER */}
                     <div className="font-bold tracking-wider" style={{ fontSize: `${fontSizes.blindsPx || 54}px`, color: themeStyle.blindsColor }}>
                         {tour.gameStats.isFinished ? 'CẢM ƠN QUÝ HỘI VIÊN ĐÃ THAM GIA' : (currentStep.type === 'break' ? 'BREAK TIME' : `BLINDS : ${currentStep.sb.toLocaleString()} / ${currentStep.bb.toLocaleString()}`)}
                     </div>
 
+                    {/* DÒNG ANTE KHI ĐANG Ở LEVEL THƯỜNG */}
                     {currentStep.type !== 'break' && !tour.gameStats.isFinished && (
                         <div className="font-bold tracking-wider" style={{ fontSize: `${Math.max(14, (fontSizes.blindsPx || 54) - 10)}px`, color: themeStyle.blindsColor }}>
                             ANTE : {currentStep.ante.toLocaleString()}
+                        </div>
+                    )}
+
+                    {/* KHÔI PHỤC DÒNG CHIP RACE TRONG GIỜ BREAK TIME NẾU CÓ CÀI ĐẶT CHIP RACE */}
+                    {currentStep.type === 'break' && !tour.gameStats.isFinished && (currentStep.isChipRace || currentStep.chipRaceTitle) && (
+                        <div className="font-bold tracking-wider mt-2 text-amber-300 animate-pulse" style={{ fontSize: `${Math.max(16, (fontSizes.blindsPx || 54) - 12)}px` }}>
+                            CHIP RACE : {currentStep.chipRaceTitle || '100, 500'}
                         </div>
                     )}
 
@@ -728,11 +736,14 @@ function App() {
 
     const [draftConfigState, setDraftConfigState] = useState(() => JSON.parse(JSON.stringify(activeAdminTour)));
 
+    // Tự động làm mới Draft Config State mỗi khi dữ liệu Cloud mới được kéo về (TỰ ĐỘNG SYNC 0ms)
     useEffect(() => {
-        setDraftConfigState(JSON.parse(JSON.stringify(activeAdminTour)));
-    }, [adminSetupTourId, masterSelectedTourId]);
+        if (activeAdminTour) {
+            setDraftConfigState(JSON.parse(JSON.stringify(activeAdminTour)));
+        }
+    }, [adminSetupTourId, masterSelectedTourId, activeAdminTour]);
 
-    // Khởi tạo Supabase Realtime Sync 100% Cloud
+    // Khởi tạo Supabase Realtime Sync 100% Cloud (Nạp tức thì cho thiết bị mới)
     useEffect(() => {
         if (window.initCloudSync) {
             window.initCloudSync(
@@ -772,7 +783,7 @@ function App() {
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [activePublicTour.config.scheduledStartDate, activePublicTour.config.scheduledStartTime]);
+    }, [activePublicTour.config.scheduledStartDate, activePublicTour.config.scheduledStartTime, activePublicTour.id]);
 
     const handlePublicViewTourClick = (tourId) => {
         setPublicViewTourId(tourId);
@@ -1281,7 +1292,7 @@ function App() {
     };
 
     const addBlindLevelDraft = (type) => {
-        let newLevelObj = { id: Date.now(), type: 'break', length: 10, title: 'Break', isChipRace: false, chipRaceTitle: '' };
+        let newLevelObj = { id: Date.now(), type: 'break', length: 10, title: 'Break', isChipRace: false, chipRaceTitle: '100, 500' };
 
         if (type === 'level') {
             const lastLevel = [...draftConfigState.blinds].reverse().find(b => b.type === 'level');
@@ -1579,10 +1590,10 @@ function App() {
             )}
 
             <main className="flex-1 max-w-[98vw] lg:max-w-[95vw] w-full mx-auto p-3 sm:p-5 md:p-8 flex flex-col justify-center my-auto">
-                {/* TAB BXH & TOUR */}
+                {/* TAB BXH & TOUR - HIỂN THỊ DUY NHẤT LỊCH KHAI MẠC VÀ ĐẾM NGƯỢC THỜI GIAN THỰC */}
                 {activeView === 'combined-dashboard' && (
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start w-full">
-                        {/* BÊN TRÁI: HIỂN THỊ TINH GỌN THÔNG TIN TOUR */}
+                        {/* BÊN TRÁI: HIỂN THỊ TINH GỌN THÔNG TIN TOUR VÀ LỊCH KHAI MẠC */}
                         <div className="lg:col-span-5 space-y-5">
                             <div className="gold-border-box bg-black/90 backdrop-blur-md rounded-3xl p-6 shadow-2xl space-y-5 border border-gold/30">
                                 <div className="flex items-center justify-between border-b border-gold/30 pb-3">
@@ -2157,6 +2168,10 @@ function App() {
                                                                         <div className="flex-1">
                                                                             <span className="text-[10px] text-gray-400 block mb-0.5">Break title</span>
                                                                             <input type="text" value={b.title || ''} placeholder="vd: 1st" onChange={(e)=> updateBlindFieldDraft(b.id, 'title', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-white text-xs sm:text-sm"/>
+                                                                        </div>
+                                                                        <div className="flex-1">
+                                                                            <span className="text-[10px] text-amber-300 font-bold block mb-0.5">Chip race (Mệnh Giá)</span>
+                                                                            <input type="text" value={b.chipRaceTitle || ''} placeholder="vd: 100, 500" onChange={(e)=> updateBlindFieldDraft(b.id, 'chipRaceTitle', e.target.value)} className="w-full bg-gray-900 border border-amber-500/50 rounded-xl px-3 py-2 text-amber-300 font-bold text-xs sm:text-sm"/>
                                                                         </div>
                                                                         <div>
                                                                             <span className="text-[10px] text-amber-300 font-bold block mb-0.5">Phút (Time)</span>
