@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -38,7 +37,6 @@ window.initCloudSync = async function(onDataReceived, onSyncStatusChange) {
         window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         onSyncStatusChange(true);
 
-        // Tải dữ liệu chuẩn từ Cloud ngay khi vừa mở trang (Initial Cloud Fetch)
         const fetchData = async () => {
             try {
                 const { data, error } = await window.supabaseClient
@@ -57,9 +55,8 @@ window.initCloudSync = async function(onDataReceived, onSyncStatusChange) {
 
         await fetchData();
 
-        // Kênh Broadcast 0ms Realtime
         window.supabaseChannel = window.supabaseClient
-            .channel('room_poker_live_v26', { config: { broadcast: { self: true } } })
+            .channel('room_poker_live_v28', { config: { broadcast: { self: true } } })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'tournaments' }, payload => {
                 if (payload.new && payload.new.data) {
                     onDataReceived(payload.new.data);
@@ -433,29 +430,32 @@ const playSoundEffect = (soundType) => {
 
 function TournamentTVCard({ tour, openSinglePopout, isStandaloneTVMode }) {
     if (!tour) return null;
-    const currentStep = tour.blinds[tour.gameStats.currentStepIdx] || tour.blinds[0];
+    const currentStep = (tour.blinds && tour.blinds[tour.gameStats.currentStepIdx]) || (tour.blinds && tour.blinds[0]) || { type: 'level', sb: 100, bb: 100, ante: 100 };
 
     const getCalculatedLevelNumber = (blindsList, stepIndex) => {
         let levelNum = 0;
+        if (!blindsList) return 1;
         for (let i = 0; i <= stepIndex && i < blindsList.length; i++) {
             if (blindsList[i].type === 'level') levelNum++;
         }
-        return levelNum;
+        return Math.max(1, levelNum);
     };
 
     const getSecondsToNextBreak = (t) => {
-        let totalSecs = t.gameStats.secondsLeft;
+        let totalSecs = t.gameStats.secondsLeft || 0;
+        if (!t.blinds) return totalSecs;
         for (let i = t.gameStats.currentStepIdx + 1; i < t.blinds.length; i++) {
             if (t.blinds[i].type === 'break') break;
-            totalSecs += t.blinds[i].length * 60;
+            totalSecs += (t.blinds[i].length || 15) * 60;
         }
         return totalSecs;
     };
 
     const getNextLevelInfo = (t) => {
+        if (!t.blinds) return 'END GAME';
         for (let i = t.gameStats.currentStepIdx + 1; i < t.blinds.length; i++) {
             if (t.blinds[i].type === 'level') {
-                return `${t.blinds[i].sb.toLocaleString()}/${t.blinds[i].bb.toLocaleString()}`;
+                return `${(t.blinds[i].sb || 0).toLocaleString()}/${(t.blinds[i].bb || 0).toLocaleString()}`;
             } else if (t.blinds[i].type === 'break') {
                 return 'Break Time';
             }
@@ -477,10 +477,10 @@ function TournamentTVCard({ tour, openSinglePopout, isStandaloneTVMode }) {
     };
 
     const currentLevelNum = getCalculatedLevelNumber(tour.blinds, tour.gameStats.currentStepIdx);
-    const totalEntries = tour.gameStats.buyIns + tour.gameStats.rebuys;
-    const totalPointsFromPayouts = tour.payouts.reduce((sum, p) => sum + (Number(p.value) || 0), 0);
-    const totalChipsInPlay = totalEntries * tour.config.startingStack;
-    const playersLeft = Math.max(0, tour.gameStats.buyIns - tour.gameStats.eliminated);
+    const totalEntries = (tour.gameStats.buyIns || 0) + (tour.gameStats.rebuys || 0);
+    const totalPointsFromPayouts = (tour.payouts || []).reduce((sum, p) => sum + (Number(p.value) || 0), 0);
+    const totalChipsInPlay = totalEntries * (tour.config.startingStack || 25000);
+    const playersLeft = Math.max(0, (tour.gameStats.buyIns || 0) - (tour.gameStats.eliminated || 0));
     const avgStack = playersLeft > 0 ? Math.round(totalChipsInPlay / playersLeft) : 0;
     const nextBreakTime = formatTimeHHMMSS(getSecondsToNextBreak(tour));
 
@@ -522,7 +522,7 @@ function TournamentTVCard({ tour, openSinglePopout, isStandaloneTVMode }) {
                             <div className="flex flex-col items-center mb-1.5">
                                 {tour.config.showClubName !== false && (
                                     <div className="text-gold font-extrabold tracking-[0.2em] font-cinzel text-center" style={{ fontSize: `${fontSizes.brandPx || 30}px` }}>
-                                        {tour.config.clubName}
+                                        {tour.config.clubName || 'SNAP CALL'}
                                     </div>
                                 )}
                                 {tour.config.showSubTitle !== false && (
@@ -540,7 +540,7 @@ function TournamentTVCard({ tour, openSinglePopout, isStandaloneTVMode }) {
                         <div className="flex flex-wrap justify-center items-center gap-x-3 sm:gap-x-6 text-gray-200 font-medium tracking-wide bg-black/40 py-1.5 px-3 rounded-xl border border-gold/20 max-w-xl mx-auto" style={{ fontSize: `${fontSizes.tourInfoPx || 18}px` }}>
                             <div>Buyin: <span className="text-white font-bold">{tour.config.buyIn}</span></div>
                             <div>Rebuy: <span className="text-white font-bold">{tour.config.rebuyPrice}</span></div>
-                            <div>Stack: <span className="text-white font-bold">{tour.config.startingStack.toLocaleString()}</span></div>
+                            <div>Stack: <span className="text-white font-bold">{(tour.config.startingStack || 25000).toLocaleString()}</span></div>
                             <div>Reg End: <span className="text-white font-bold">Level {tour.config.regEndLevel}</span></div>
                         </div>
                     </div>
@@ -571,19 +571,16 @@ function TournamentTVCard({ tour, openSinglePopout, isStandaloneTVMode }) {
                         )}
                     </div>
 
-                    {/* HIỂN THỊ BLINDS HOẶC BREAK TIME */}
                     <div className="font-bold tracking-wider" style={{ fontSize: `${fontSizes.blindsPx || 54}px`, color: themeStyle.blindsColor }}>
-                        {tour.gameStats.isFinished ? 'CẢM ƠN QUÝ HỘI VIÊN ĐÃ THAM GIA' : (currentStep.type === 'break' ? 'BREAK TIME' : `BLINDS : ${currentStep.sb.toLocaleString()} / ${currentStep.bb.toLocaleString()}`)}
+                        {tour.gameStats.isFinished ? 'CẢM ƠN QUÝ HỘI VIÊN ĐÃ THAM GIA' : (currentStep.type === 'break' ? 'BREAK TIME' : `BLINDS : ${(currentStep.sb || 0).toLocaleString()} / ${(currentStep.bb || 0).toLocaleString()}`)}
                     </div>
 
-                    {/* DÒNG ANTE KHI ĐANG Ở LEVEL THƯỜNG */}
                     {currentStep.type !== 'break' && !tour.gameStats.isFinished && (
                         <div className="font-bold tracking-wider" style={{ fontSize: `${Math.max(14, (fontSizes.blindsPx || 54) - 10)}px`, color: themeStyle.blindsColor }}>
-                            ANTE : {currentStep.ante.toLocaleString()}
+                            ANTE : {(currentStep.ante || 0).toLocaleString()}
                         </div>
                     )}
 
-                    {/* KHÔI PHỤC DÒNG CHIP RACE HIỂN THỊ NỔI BẬT CHO DEALER TRONG GIỜ BREAK TIME */}
                     {currentStep.type === 'break' && !tour.gameStats.isFinished && (currentStep.isChipRace || currentStep.chipRaceTitle) && (
                         <div className="font-bold tracking-wider mt-2 text-amber-300 animate-pulse" style={{ fontSize: `${Math.max(16, (fontSizes.blindsPx || 54) - 12)}px` }}>
                             CHIP RACE : {currentStep.chipRaceTitle || '100, 500'}
@@ -638,7 +635,7 @@ function TournamentTVCard({ tour, openSinglePopout, isStandaloneTVMode }) {
                         </div>
 
                         <div className="space-y-2 text-left border-t border-gray-800 pt-3 max-w-xs mx-auto lg:ml-auto" style={{ fontSize: `${fontSizes.payoutsPx || 24}px` }}>
-                            {tour.payouts.map((p, idx) => (
+                            {(tour.payouts || []).map((p, idx) => (
                                 <div key={idx} className="flex justify-between items-center font-bold px-1">
                                     <span className="text-gray-300">{p.place}</span>
                                     <span className="text-white">{p.value}</span>
@@ -674,7 +671,7 @@ function App() {
     const [activeView, setActiveView] = useState('combined-dashboard');
     const [wizardStep, setWizardStep] = useState(1);
     const [isCloudSynced, setIsCloudSynced] = useState(false);
-    const [draggedBlindIdx, setDraggedBlindIdx] =500;
+    const [draggedBlindIdx, setDraggedBlindIdx] = useState(null);
     const [searchPhoneInput, setSearchPhoneInput] = useState('');
     const [searchResultPlayer, setSearchResultPlayer] = useState(null);
     const [showFontSizesCollapse, setShowFontSizesCollapse] = useState(false);
@@ -709,11 +706,9 @@ function App() {
         };
     });
 
-    // LOCAL UI STATE: Tab được chọn xem ở Admin Setup và Public View hoàn toàn độc lập ở từng thiết bị
     const [adminSetupTourId, setAdminSetupTourId] = useState(101);
     const [publicViewTourId, setPublicViewTourId] = useState(101);
 
-    // Parse URL Parameter nếu mở màn hình Popout TV Độc Lập
     useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
         const viewParam = urlParams.get('view');
@@ -726,22 +721,20 @@ function App() {
         }
     }, []);
 
-    const tournaments = appState.tours || [];
-    const presets = appState.presets || [];
+    const tournaments = (appState && appState.tours && appState.tours.length > 0) ? appState.tours : [defaultTourTemplate('MONTER STACK', 101, 100, 100)];
+    const presets = (appState && appState.presets) ? appState.presets : [];
 
-    const activePublicTour = tournaments.find(t => t.id === publicViewTourId) || tournaments[0] || defaultTourTemplate('MONTER STACK', 101, 100, 100);
-    const activeAdminTour = tournaments.find(t => t.id === adminSetupTourId) || tournaments[0] || defaultTourTemplate('MONTER STACK', 101, 100, 100);
+    const activePublicTour = tournaments.find(t => t.id === publicViewTourId) || tournaments[0];
+    const activeAdminTour = tournaments.find(t => t.id === adminSetupTourId) || tournaments[0];
 
     const [draftConfigState, setDraftConfigState] = useState(() => JSON.parse(JSON.stringify(activeAdminTour)));
 
-    // Tự động làm mới Draft Form Setup khi đổi Tour hoặc khi nhận dữ liệu Cloud mới
     useEffect(() => {
         if (activeAdminTour) {
             setDraftConfigState(JSON.parse(JSON.stringify(activeAdminTour)));
         }
-    }, [adminSetupTourId, activeAdminTour.id, appState.lastUpdated]);
+    }, [adminSetupTourId, activeAdminTour ? activeAdminTour.id : 0, appState.lastUpdated]);
 
-    // Khởi tạo Supabase Cloud Sync (Tải dữ liệu Cloud chuẩn hóa ngay 0ms)
     useEffect(() => {
         if (window.initCloudSync) {
             window.initCloudSync(
@@ -749,8 +742,6 @@ function App() {
                     if (cloudState && cloudState.tours && Array.isArray(cloudState.tours) && cloudState.tours.length > 0) {
                         isInitializedRef.current = true;
                         setAppState(cloudState);
-
-                        // Tự động giữ nguyên tab của thiết bị nếu tour vẫn tồn tại, ngược lại về tour đầu
                         setAdminSetupTourId(currId => cloudState.tours.some(t => t.id === currId) ? currId : cloudState.tours[0].id);
                         setPublicViewTourId(currId => cloudState.tours.some(t => t.id === currId) ? currId : cloudState.tours[0].id);
                     }
@@ -760,16 +751,16 @@ function App() {
         }
     }, []);
 
-    // Đếm ngược lịch khai mạc giải đấu
     useEffect(() => {
         const calcRemaining = () => {
+            if (!activePublicTour || !activePublicTour.config) return 0;
             const startDateStr = activePublicTour.config.scheduledStartDate || getTodayDateString();
             const startTimeStr = activePublicTour.config.scheduledStartTime || '13:00';
 
             const [yyyy, mm, dd] = startDateStr.split('-').map(Number);
             const [hrs, mins] = startTimeStr.split(':').map(Number);
 
-            const targetDate = new Date(yyyy, mm - 1, dd, hrs, mins, 0);
+            const targetDate = new Date(yyyy, (mm || 1) - 1, dd || 1, hrs || 0, mins || 0, 0);
             const now = new Date();
 
             return Math.floor((targetDate.getTime() - now.getTime()) / 1000);
@@ -782,7 +773,7 @@ function App() {
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [activePublicTour.config.scheduledStartDate, activePublicTour.config.scheduledStartTime, activePublicTour.id]);
+    }, [activePublicTour ? activePublicTour.config.scheduledStartDate : '', activePublicTour ? activePublicTour.config.scheduledStartTime : '', activePublicTour ? activePublicTour.id : 0]);
 
     const handlePublicViewTourClick = (tourId) => {
         setPublicViewTourId(tourId);
@@ -837,7 +828,6 @@ function App() {
         }
     };
 
-    // VÒNG LẶP ĐỒNG HỒ ĐẾM NGƯỢC MASTER SERVER TIME (Đồng bộ 100% không giật/nhảy số giữa nhiều máy)
     useEffect(() => {
         const timer = setInterval(() => {
             const now = Date.now();
@@ -1005,7 +995,7 @@ function App() {
                                     ...t.gameStats,
                                     isPaused: false,
                                     isFinished: false,
-                                    targetEndTime: now + (t.gameStats.secondsLeft * 1000)
+                                    targetEndTime: now + ((t.gameStats.secondsLeft || 900) * 1000)
                                 }
                             };
                         }
@@ -1057,7 +1047,7 @@ function App() {
                 ...prev,
                 tours: prev.tours.map(t => {
                     if (t.id === tourId) {
-                        const newSecs = Math.max(0, t.gameStats.secondsLeft + deltaSeconds);
+                        const newSecs = Math.max(0, (t.gameStats.secondsLeft || 0) + deltaSeconds);
                         return {
                             ...t,
                             gameStats: {
@@ -1078,7 +1068,6 @@ function App() {
         });
     };
 
-    // TẠO TOUR MỚI: TỰ ĐỘNG ĐỒNG BỘ CLOUD SUPABASE 100%
     const addNewTournament = () => {
         const newId = Date.now();
         const newTour = defaultTourTemplate(`TOUR #${tournaments.length + 1}`, newId, 100, 100);
@@ -1100,7 +1089,6 @@ function App() {
         setPublicViewTourId(newId);
     };
 
-    // XÓA TOUR: ĐỒNG BỘ CLOUD SUPABASE VÀ XÓA TRIỆT ĐỂ Ở MỌI NƠI
     const removeTournament = (tourId) => {
         if (tournaments.length <= 1) {
             alert("Cần duy trì ít nhất 1 giải đấu trong hệ thống!");
@@ -1247,7 +1235,6 @@ function App() {
         }
     };
 
-    // MỞ CỬA SỔ POPOUT TV BẰNG URL ĐỘC LẬP
     const openSinglePopoutWindow = (targetTourId) => {
         const currentUrl = new URL(window.location.href);
         currentUrl.searchParams.set('view', 'tv');
@@ -1285,7 +1272,7 @@ function App() {
     };
 
     const addBlindLevelDraft = (type) => {
-        let newLevelObj = { id: Date.now(), type: 'break', length: 10, title: 'Break', isChipRace: false, chipRaceTitle: '100, 500' };
+        let newLevelObj = { id: Date.now(), type: 'break', length: 10, title: 'Break', isChipRace: true, chipRaceTitle: '100, 500' };
 
         if (type === 'level') {
             const lastLevel = [...draftConfigState.blinds].reverse().find(b => b.type === 'level');
@@ -1374,7 +1361,7 @@ function App() {
                 tours: prev.tours.map(t => {
                     if (t.id === tourId && t.gameStats.currentStepIdx < t.blinds.length - 1) {
                         const nextIdx = t.gameStats.currentStepIdx + 1;
-                        const nextSecs = t.blinds[nextIdx].length * 60;
+                        const nextSecs = (t.blinds[nextIdx].length || 15) * 60;
                         return {
                             ...t,
                             gameStats: {
@@ -1404,7 +1391,7 @@ function App() {
                 tours: prev.tours.map(t => {
                     if (t.id === tourId && t.gameStats.currentStepIdx > 0) {
                         const prevIdx = t.gameStats.currentStepIdx - 1;
-                        const prevSecs = t.blinds[prevIdx].length * 60;
+                        const prevSecs = (t.blinds[prevIdx].length || 15) * 60;
                         return {
                             ...t,
                             gameStats: {
@@ -1446,7 +1433,7 @@ function App() {
         return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 
-    const fontCustomSizes = draftConfigState.config.fontCustomSizes || {
+    const fontCustomSizes = (draftConfigState && draftConfigState.config && draftConfigState.config.fontCustomSizes) || {
         brandPx: 30,
         headerPx: 56,
         subHeaderPx: 18,
@@ -1459,7 +1446,6 @@ function App() {
         tourInfoPx: 18
     };
 
-    // Màn hình Popout TV Độc Lập
     if (isStandaloneTV) {
         const targetTour = tournaments.find(t => t.id === standaloneTourId) || activePublicTour;
         return (
@@ -1471,7 +1457,6 @@ function App() {
 
     return (
         <div className="min-h-screen flex flex-col justify-between pb-20 md:pb-0">
-            {/* HEADER ĐIỀU HƯỚNG TOP BAR */}
             <header className="hidden md:flex w-full bg-black/90 backdrop-blur-md border-b border-gold/30 px-6 py-3 justify-between items-center z-50 text-sm">
                 <div className="flex items-center space-x-3">
                     <span className="bg-red-950/90 border border-red-600/50 text-red-400 font-extrabold px-3 py-1.5 rounded-xl tracking-wider uppercase shadow">SNAP CALL POKER</span>
@@ -1511,7 +1496,6 @@ function App() {
                 </div>
             </header>
 
-            {/* THANH BOTTOM NAVIGATION BAR MOBILE & IPAD PORTRAIT */}
             <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-xl border-t border-gold/40 flex justify-around items-center py-2.5 px-2 text-[11px] shadow-2xl">
                 <button
                     onClick={() => setActiveView('combined-dashboard')}
@@ -1543,7 +1527,6 @@ function App() {
                 </button>
             </nav>
 
-            {/* MODAL ĐĂNG NHẬP ADMIN SETUP */}
             {showLoginModal && (
                 <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
                     <div className="bg-black/95 border border-gold/50 rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-2xl relative text-center">
@@ -1583,10 +1566,8 @@ function App() {
             )}
 
             <main className="flex-1 max-w-[98vw] lg:max-w-[95vw] w-full mx-auto p-3 sm:p-5 md:p-8 flex flex-col justify-center my-auto">
-                {/* TAB BXH & TOUR - HIỂN THỊ LỊCH KHAI MẠC VÀ ĐẾM NGƯỢC REALTIME NẠP 0MS TỪ CLOUD */}
                 {activeView === 'combined-dashboard' && (
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start w-full">
-                        {/* BÊN TRÁI: THÔNG TIN TOUR & LỊCH KHAI MẠC */}
                         <div className="lg:col-span-5 space-y-5">
                             <div className="gold-border-box bg-black/90 backdrop-blur-md rounded-3xl p-6 shadow-2xl space-y-5 border border-gold/30">
                                 <div className="flex items-center justify-between border-b border-gold/30 pb-3">
@@ -1625,7 +1606,7 @@ function App() {
                                         </div>
                                         <div className="bg-gray-900/90 p-3.5 rounded-2xl border border-gray-800">
                                             <span className="text-gray-400 block mb-1 font-semibold">STARTING STACK</span>
-                                            <span className="text-amber-400 font-extrabold text-lg">{activePublicTour.config.startingStack.toLocaleString()}</span>
+                                            <span className="text-amber-400 font-extrabold text-lg">{(activePublicTour.config.startingStack || 25000).toLocaleString()}</span>
                                         </div>
                                         <div className="bg-gray-900/90 p-3.5 rounded-2xl border border-gray-800">
                                             <span className="text-gray-400 block mb-1 font-semibold">REG END</span>
@@ -1633,7 +1614,6 @@ function App() {
                                         </div>
                                     </div>
 
-                                    {/* KHU VỰC ĐỒNG HỒ ĐẾM NGƯỢC KHAI MẠC REALTIME */}
                                     {activePublicTour.gameStats.isFinished ? (
                                         <div className="bg-gradient-to-b from-gray-900 to-black/90 border border-gray-700 rounded-2xl p-4 text-center">
                                             <div className="text-gold-bright font-black text-sm uppercase tracking-wider">🏆 TOUR ĐÃ KẾT THÚC</div>
@@ -1652,7 +1632,7 @@ function App() {
                                     ) : (
                                         <div className="bg-gradient-to-b from-emerald-950/80 to-black/90 border border-emerald-500/50 rounded-2xl p-4 text-center shadow-lg">
                                             <div className="text-emerald-400 font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2">
-                                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span> 🟢 TOUR ĐANG DIỄN RA
+                                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span> 🟢 TOUR Đang DIỄN RA
                                             </div>
                                             <div className="text-[11px] text-gray-300 mt-1 font-medium">Giải đấu đã chính thức khởi tranh</div>
                                         </div>
@@ -1661,7 +1641,6 @@ function App() {
                             </div>
                         </div>
 
-                        {/* BÊN PHẢI: BẢNG XẾP HẠNG ELO HỘI VIÊN */}
                         <div className="lg:col-span-7 space-y-5">
                             <div className="gold-border-box bg-black/85 backdrop-blur-md rounded-3xl p-5 sm:p-6 shadow-2xl flex flex-col justify-between">
                                 <div>
@@ -1752,7 +1731,6 @@ function App() {
                     </div>
                 )}
 
-                {/* MỤC 2: ĐẶT ĐƠN POS THU NGÂN */}
                 {activeView === 'pos-orders' && (
                     <div className="space-y-6 max-w-6xl mx-auto w-full">
                         <div className="gold-border-box bg-black/85 backdrop-blur-md rounded-3xl p-6 sm:p-8 shadow-2xl border border-gold/30">
@@ -1871,7 +1849,6 @@ function App() {
                     </div>
                 )}
 
-                {/* MỤC 3: TOUR VIEW */}
                 {activeView === 'player-tv' && (
                     <div className="w-full space-y-6">
                         {tournaments.length > 1 ? (
@@ -1886,7 +1863,6 @@ function App() {
                     </div>
                 )}
 
-                {/* MỤC 4: ADMIN SETUP */}
                 {activeView === 'admin' && (
                     <div className="space-y-6 w-full">
                         <div className="bg-gradient-to-r from-amber-950/40 via-black to-amber-950/40 border border-gold/40 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 backdrop-blur-md shadow-xl">
@@ -1979,7 +1955,7 @@ function App() {
                         <div className="bg-black/75 border border-gold/40 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-md">
                             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-5">
                                 <h2 className="text-lg sm:text-xl font-bold text-gold-bright flex items-center gap-2.5 flex-wrap">
-                                    <i className="fa-solid fa-gear"></i> Cấu Hình Tournament (Bản Nháp Setup): <span className="text-white">{draftConfigState.config.name}</span>
+                                    <i className="fa-solid fa-gear"></i> Cấu Hình Tournament (Bản Nháp Setup): <span className="text-white">{draftConfigState && draftConfigState.config ? draftConfigState.config.name : ''}</span>
                                 </h2>
                                 <button
                                     onClick={applyDraftChangesToLive}
@@ -2003,7 +1979,7 @@ function App() {
                             </div>
 
                             <div className="pt-6">
-                                {wizardStep === 1 && (
+                                {wizardStep === 1 && draftConfigState && (
                                     <div className="space-y-5 text-xs sm:text-sm">
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                             <div>
@@ -2108,7 +2084,7 @@ function App() {
                                     </div>
                                 )}
 
-                                {wizardStep === 2 && (
+                                {wizardStep === 2 && draftConfigState && (
                                     <div className="space-y-4">
                                         <div className="flex justify-between items-center">
                                             <span className="text-xs sm:text-sm text-gold-bright uppercase font-bold">Cấu trúc Level & Break Time (Nhấn Giữ ☰ Kéo Thả Đổi Vị Trí)</span>
@@ -2121,14 +2097,14 @@ function App() {
                                         <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
                                             {(() => {
                                                 let runningLevelCount = 0;
-                                                return draftConfigState.blinds.map((b, idx) => {
+                                                return (draftConfigState.blinds || []).map((b, idx) => {
                                                     const isLevel = b.type === 'level';
                                                     if (isLevel) runningLevelCount++;
                                                     const displayLvlNum = runningLevelCount;
 
                                                     return (
                                                         <div
-                                                            key={b.id}
+                                                            key={b.id || idx}
                                                             draggable
                                                             onDragStart={(e) => handleDragStart(e, idx)}
                                                             onDragOver={(e) => handleDragOver(e, idx)}
@@ -2182,7 +2158,7 @@ function App() {
                                     </div>
                                 )}
 
-                                {wizardStep === 3 && (
+                                {wizardStep === 3 && draftConfigState && (
                                     <div className="space-y-4 text-xs sm:text-sm">
                                         <div className="flex justify-between items-center">
                                             <span className="text-gold-bright font-bold uppercase">Cơ cấu trả thưởng (Payout Points / Token)</span>
@@ -2201,7 +2177,7 @@ function App() {
                                     </div>
                                 )}
 
-                                {wizardStep === 4 && (
+                                {wizardStep === 4 && draftConfigState && (
                                     <div className="space-y-6 text-xs sm:text-sm">
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                             <div>
@@ -2310,7 +2286,7 @@ function App() {
                                     </div>
                                 )}
 
-                                {wizardStep === 5 && (
+                                {wizardStep === 5 && draftConfigState && (
                                     <div className="space-y-5 text-xs sm:text-sm">
                                         <div className="text-gold-bright uppercase font-bold text-base font-cinzel">Cài Đặt Sound Âm Thanh Thông Báo Realtime</div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -2351,7 +2327,7 @@ function App() {
                                     </div>
                                 )}
 
-                                {wizardStep === 6 && (
+                                {wizardStep === 6 && draftConfigState && (
                                     <div className="space-y-4 text-xs sm:text-sm bg-black/50 p-6 rounded-2xl border border-gold/30 shadow-xl">
                                         <div className="text-gold-bright font-bold text-xl font-cinzel">{draftConfigState.config.name}</div>
                                         <div className="text-base">Buy-in: <span className="text-white font-bold">{draftConfigState.config.buyIn}</span> | Rebuy: <span className="text-white font-bold">{draftConfigState.config.rebuyPrice}</span> | Starting Stack: <span className="text-amber-400 font-bold">{draftConfigState.config.startingStack.toLocaleString()}</span></div>
