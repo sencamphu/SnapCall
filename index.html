@@ -38,7 +38,7 @@ window.initCloudSync = async function(onDataReceived, onSyncStatusChange) {
         window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         onSyncStatusChange(true);
 
-        // 1. Tải dữ liệu chuẩn từ Supabase Cloud ngay khi vừa khởi chạy
+        // Tải dữ liệu chuẩn từ Cloud ngay khi vừa mở trang (Initial Cloud Fetch)
         const fetchData = async () => {
             try {
                 const { data, error } = await window.supabaseClient
@@ -48,7 +48,7 @@ window.initCloudSync = async function(onDataReceived, onSyncStatusChange) {
                     .maybeSingle();
 
                 if (data && data.data) {
-                    onDataReceived(data.data, true);
+                    onDataReceived(data.data);
                 }
             } catch(e) {
                 console.warn("Fetch Error:", e);
@@ -57,17 +57,17 @@ window.initCloudSync = async function(onDataReceived, onSyncStatusChange) {
 
         await fetchData();
 
-        // 2. Đăng ký nhận Realtime Broadcast (0ms Delay)
+        // Kênh Broadcast 0ms Realtime
         window.supabaseChannel = window.supabaseClient
-            .channel('room_poker_live_v25', { config: { broadcast: { self: true } } })
+            .channel('room_poker_live_v26', { config: { broadcast: { self: true } } })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'tournaments' }, payload => {
                 if (payload.new && payload.new.data) {
-                    onDataReceived(payload.new.data, true);
+                    onDataReceived(payload.new.data);
                 }
             })
             .on('broadcast', { event: 'tour_update' }, payload => {
                 if (payload.payload && payload.payload.data) {
-                    onDataReceived(payload.payload.data, true);
+                    onDataReceived(payload.payload.data);
                 }
             })
             .subscribe();
@@ -81,11 +81,11 @@ window.initCloudSync = async function(onDataReceived, onSyncStatusChange) {
 window.saveAppStateToCloud = async (appDataState) => {
     try {
         const payloadData = {
-            ...appDataState,
+            tours: appDataState.tours,
+            presets: appDataState.presets || [],
             lastUpdated: Date.now()
         };
 
-        // Bắn tín hiệu Broadcast 0ms tới các tab/thiết bị khác
         if (window.supabaseChannel) {
             window.supabaseChannel.send({
                 type: 'broadcast',
@@ -94,14 +94,12 @@ window.saveAppStateToCloud = async (appDataState) => {
             });
         }
 
-        // Đẩy dữ liệu lưu đè lên Supabase Cloud
         if (window.supabaseClient) {
             await window.supabaseClient
                 .from('tournaments')
                 .upsert({ id: 'live_state', data: payloadData, updated_at: new Date().toISOString() });
         }
 
-        // Lưu bản đệm bộ nhớ thiết bị
         localStorage.setItem('snapcall_live_app_state', JSON.stringify(payloadData));
     } catch (e) {
         console.warn("Lỗi lưu Supabase Cloud:", e);
@@ -573,7 +571,7 @@ function TournamentTVCard({ tour, openSinglePopout, isStandaloneTVMode }) {
                         )}
                     </div>
 
-                    {/* HIỂN THỊ BLINDS / BREAK TIME & KHÔI PHỤC CHIP RACE CHO DEALER */}
+                    {/* HIỂN THỊ BLINDS HOẶC BREAK TIME */}
                     <div className="font-bold tracking-wider" style={{ fontSize: `${fontSizes.blindsPx || 54}px`, color: themeStyle.blindsColor }}>
                         {tour.gameStats.isFinished ? 'CẢM ƠN QUÝ HỘI VIÊN ĐÃ THAM GIA' : (currentStep.type === 'break' ? 'BREAK TIME' : `BLINDS : ${currentStep.sb.toLocaleString()} / ${currentStep.bb.toLocaleString()}`)}
                     </div>
@@ -585,7 +583,7 @@ function TournamentTVCard({ tour, openSinglePopout, isStandaloneTVMode }) {
                         </div>
                     )}
 
-                    {/* KHÔI PHỤC DÒNG CHIP RACE TRONG GIỜ BREAK TIME NẾU CÓ CÀI ĐẶT CHIP RACE */}
+                    {/* KHÔI PHỤC DÒNG CHIP RACE HIỂN THỊ NỔI BẬT CHO DEALER TRONG GIỜ BREAK TIME */}
                     {currentStep.type === 'break' && !tour.gameStats.isFinished && (currentStep.isChipRace || currentStep.chipRaceTitle) && (
                         <div className="font-bold tracking-wider mt-2 text-amber-300 animate-pulse" style={{ fontSize: `${Math.max(16, (fontSizes.blindsPx || 54) - 12)}px` }}>
                             CHIP RACE : {currentStep.chipRaceTitle || '100, 500'}
@@ -676,7 +674,7 @@ function App() {
     const [activeView, setActiveView] = useState('combined-dashboard');
     const [wizardStep, setWizardStep] = useState(1);
     const [isCloudSynced, setIsCloudSynced] = useState(false);
-    const [draggedBlindIdx, setDraggedBlindIdx] = useState(null);
+    const [draggedBlindIdx, setDraggedBlindIdx] =500;
     const [searchPhoneInput, setSearchPhoneInput] = useState('');
     const [searchResultPlayer, setSearchResultPlayer] = useState(null);
     const [showFontSizesCollapse, setShowFontSizesCollapse] = useState(false);
@@ -692,6 +690,8 @@ function App() {
     const [pinInput, setPinInput] = useState('');
     const [loginError, setLoginError] = useState('');
 
+    const isInitializedRef = useRef(false);
+
     const [appState, setAppState] = useState(() => {
         const cached = localStorage.getItem('snapcall_live_app_state');
         if (cached) {
@@ -705,15 +705,15 @@ function App() {
                 defaultTourTemplate('MONTER STACK', 101, 100, 100)
             ],
             presets: [],
-            selectedTourId: 101,
             lastUpdated: Date.now()
         };
     });
 
+    // LOCAL UI STATE: Tab được chọn xem ở Admin Setup và Public View hoàn toàn độc lập ở từng thiết bị
     const [adminSetupTourId, setAdminSetupTourId] = useState(101);
-    const [publicViewTourId, setPublicViewTourId] = useState(null);
+    const [publicViewTourId, setPublicViewTourId] = useState(101);
 
-    // Kiểm tra URL query parameter khi tải trang (Đồng bộ Popout TV URL)
+    // Parse URL Parameter nếu mở màn hình Popout TV Độc Lập
     useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
         const viewParam = urlParams.get('view');
@@ -728,32 +728,31 @@ function App() {
 
     const tournaments = appState.tours || [];
     const presets = appState.presets || [];
-    const masterSelectedTourId = appState.selectedTourId || tournaments[0]?.id || 101;
 
-    const currentPublicDisplayId = publicViewTourId || masterSelectedTourId;
-    const activePublicTour = tournaments.find(t => t.id === currentPublicDisplayId) || tournaments.find(t => t.id === masterSelectedTourId) || tournaments[0] || defaultTourTemplate('MONTER STACK', 101, 100, 100);
-    const activeAdminTour = tournaments.find(t => t.id === adminSetupTourId) || tournaments.find(t => t.id === masterSelectedTourId) || tournaments[0] || defaultTourTemplate('MONTER STACK', 101, 100, 100);
+    const activePublicTour = tournaments.find(t => t.id === publicViewTourId) || tournaments[0] || defaultTourTemplate('MONTER STACK', 101, 100, 100);
+    const activeAdminTour = tournaments.find(t => t.id === adminSetupTourId) || tournaments[0] || defaultTourTemplate('MONTER STACK', 101, 100, 100);
 
     const [draftConfigState, setDraftConfigState] = useState(() => JSON.parse(JSON.stringify(activeAdminTour)));
 
-    // Tự động làm mới Draft Config State mỗi khi dữ liệu Cloud mới được kéo về (TỰ ĐỘNG SYNC 0ms)
+    // Tự động làm mới Draft Form Setup khi đổi Tour hoặc khi nhận dữ liệu Cloud mới
     useEffect(() => {
         if (activeAdminTour) {
             setDraftConfigState(JSON.parse(JSON.stringify(activeAdminTour)));
         }
-    }, [adminSetupTourId, masterSelectedTourId, activeAdminTour]);
+    }, [adminSetupTourId, activeAdminTour.id, appState.lastUpdated]);
 
-    // Khởi tạo Supabase Realtime Sync 100% Cloud (Nạp tức thì cho thiết bị mới)
+    // Khởi tạo Supabase Cloud Sync (Tải dữ liệu Cloud chuẩn hóa ngay 0ms)
     useEffect(() => {
         if (window.initCloudSync) {
             window.initCloudSync(
                 (cloudState) => {
                     if (cloudState && cloudState.tours && Array.isArray(cloudState.tours) && cloudState.tours.length > 0) {
+                        isInitializedRef.current = true;
                         setAppState(cloudState);
-                        setAdminSetupTourId(currId => {
-                            const exists = cloudState.tours.some(t => t.id === currId);
-                            return exists ? currId : (cloudState.selectedTourId || cloudState.tours[0].id);
-                        });
+
+                        // Tự động giữ nguyên tab của thiết bị nếu tour vẫn tồn tại, ngược lại về tour đầu
+                        setAdminSetupTourId(currId => cloudState.tours.some(t => t.id === currId) ? currId : cloudState.tours[0].id);
+                        setPublicViewTourId(currId => cloudState.tours.some(t => t.id === currId) ? currId : cloudState.tours[0].id);
                     }
                 },
                 (status) => setIsCloudSynced(status)
@@ -761,6 +760,7 @@ function App() {
         }
     }, []);
 
+    // Đếm ngược lịch khai mạc giải đấu
     useEffect(() => {
         const calcRemaining = () => {
             const startDateStr = activePublicTour.config.scheduledStartDate || getTodayDateString();
@@ -772,8 +772,7 @@ function App() {
             const targetDate = new Date(yyyy, mm - 1, dd, hrs, mins, 0);
             const now = new Date();
 
-            const diffSecs = Math.floor((targetDate.getTime() - now.getTime()) / 1000);
-            return diffSecs;
+            return Math.floor((targetDate.getTime() - now.getTime()) / 1000);
         };
 
         setPreTourCountdownSecs(calcRemaining());
@@ -791,13 +790,6 @@ function App() {
 
     const handleAdminSelectTourId = (tourId) => {
         setAdminSetupTourId(tourId);
-        setAppState(prev => {
-            const nextState = { ...prev, selectedTourId: tourId, lastUpdated: Date.now() };
-            if (window.saveAppStateToCloud) {
-                window.saveAppStateToCloud(nextState);
-            }
-            return nextState;
-        });
     };
 
     const applyDraftChangesToLive = () => {
@@ -845,6 +837,7 @@ function App() {
         }
     };
 
+    // VÒNG LẶP ĐỒNG HỒ ĐẾM NGƯỢC MASTER SERVER TIME (Đồng bộ 100% không giật/nhảy số giữa nhiều máy)
     useEffect(() => {
         const timer = setInterval(() => {
             const now = Date.now();
@@ -1085,7 +1078,7 @@ function App() {
         });
     };
 
-    // TẠO TOUR MỚI: TỰ ĐỘNG ĐỒNG BỘ SUPABASE CLOUD NGAY LẬP TỨC 100%
+    // TẠO TOUR MỚI: TỰ ĐỘNG ĐỒNG BỘ CLOUD SUPABASE 100%
     const addNewTournament = () => {
         const newId = Date.now();
         const newTour = defaultTourTemplate(`TOUR #${tournaments.length + 1}`, newId, 100, 100);
@@ -1096,7 +1089,6 @@ function App() {
             const nextState = {
                 ...prev,
                 tours: [...prev.tours, newTour],
-                selectedTourId: newId,
                 lastUpdated: Date.now()
             };
             if (window.saveAppStateToCloud) {
@@ -1105,9 +1097,10 @@ function App() {
             return nextState;
         });
         setAdminSetupTourId(newId);
+        setPublicViewTourId(newId);
     };
 
-    // XÓA TOUR: TỰ ĐỘNG ĐỒNG BỘ SUPABASE CLOUD NGAY LẬP TỨC
+    // XÓA TOUR: ĐỒNG BỘ CLOUD SUPABASE VÀ XÓA TRIỆT ĐỂ Ở MỌI NƠI
     const removeTournament = (tourId) => {
         if (tournaments.length <= 1) {
             alert("Cần duy trì ít nhất 1 giải đấu trong hệ thống!");
@@ -1119,7 +1112,6 @@ function App() {
                 const nextState = {
                     ...prev,
                     tours: remaining,
-                    selectedTourId: remaining[0].id,
                     lastUpdated: Date.now()
                 };
                 if (window.saveAppStateToCloud) {
@@ -1128,6 +1120,7 @@ function App() {
                 return nextState;
             });
             setAdminSetupTourId(remaining[0].id);
+            setPublicViewTourId(remaining[0].id);
         }
     };
 
@@ -1237,7 +1230,7 @@ function App() {
                         alert(`Đã cập nhật tour "${parsedData.config.name}" thành công!`);
                     } else if (Array.isArray(parsedData) && parsedData.length > 0) {
                         setAppState(prev => {
-                            const nextState = { ...prev, tours: parsedData, selectedTourId: parsedData[0].id, lastUpdated: Date.now() };
+                            const nextState = { ...prev, tours: parsedData, lastUpdated: Date.now() };
                             if (window.saveAppStateToCloud) {
                                 window.saveAppStateToCloud(nextState);
                             }
@@ -1254,7 +1247,7 @@ function App() {
         }
     };
 
-    // MỞ CỬA SỔ POPOUT TV BẰNG URL ĐỘC LẬP (MƯỢT 100%, KHÔNG KHỰA/ĐƠ)
+    // MỞ CỬA SỔ POPOUT TV BẰNG URL ĐỘC LẬP
     const openSinglePopoutWindow = (targetTourId) => {
         const currentUrl = new URL(window.location.href);
         currentUrl.searchParams.set('view', 'tv');
@@ -1466,7 +1459,7 @@ function App() {
         tourInfoPx: 18
     };
 
-    // NẾU MỞ TRANG ĐỘC LẬP CHẾ ĐỘ POPOUT TV
+    // Màn hình Popout TV Độc Lập
     if (isStandaloneTV) {
         const targetTour = tournaments.find(t => t.id === standaloneTourId) || activePublicTour;
         return (
@@ -1590,10 +1583,10 @@ function App() {
             )}
 
             <main className="flex-1 max-w-[98vw] lg:max-w-[95vw] w-full mx-auto p-3 sm:p-5 md:p-8 flex flex-col justify-center my-auto">
-                {/* TAB BXH & TOUR - HIỂN THỊ DUY NHẤT LỊCH KHAI MẠC VÀ ĐẾM NGƯỢC THỜI GIAN THỰC */}
+                {/* TAB BXH & TOUR - HIỂN THỊ LỊCH KHAI MẠC VÀ ĐẾM NGƯỢC REALTIME NẠP 0MS TỪ CLOUD */}
                 {activeView === 'combined-dashboard' && (
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start w-full">
-                        {/* BÊN TRÁI: HIỂN THỊ TINH GỌN THÔNG TIN TOUR VÀ LỊCH KHAI MẠC */}
+                        {/* BÊN TRÁI: THÔNG TIN TOUR & LỊCH KHAI MẠC */}
                         <div className="lg:col-span-5 space-y-5">
                             <div className="gold-border-box bg-black/90 backdrop-blur-md rounded-3xl p-6 shadow-2xl space-y-5 border border-gold/30">
                                 <div className="flex items-center justify-between border-b border-gold/30 pb-3">
@@ -1606,7 +1599,7 @@ function App() {
                                             <button
                                                 key={t.id}
                                                 onClick={() => handlePublicViewTourClick(t.id)}
-                                                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${currentPublicDisplayId === t.id ? 'bg-amber-500 text-black font-black shadow-md' : 'bg-gray-900 text-gray-300 border border-gray-800 hover:border-gold/50'}`}
+                                                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${publicViewTourId === t.id ? 'bg-amber-500 text-black font-black shadow-md' : 'bg-gray-900 text-gray-300 border border-gray-800 hover:border-gold/50'}`}
                                             >
                                                 <span className={`w-2.5 h-2.5 rounded-full ${t.gameStats.isFinished ? 'bg-gray-500' : (t.gameStats.isPaused ? 'bg-red-500' : 'bg-emerald-400')}`}></span>
                                                 {t.config.name}
@@ -1759,7 +1752,7 @@ function App() {
                     </div>
                 )}
 
-                {/* MỤC 2: ĐẶT ĐƠN POS THU NGÂN & QUẢN LÝ KHÁCH HÀNG */}
+                {/* MỤC 2: ĐẶT ĐƠN POS THU NGÂN */}
                 {activeView === 'pos-orders' && (
                     <div className="space-y-6 max-w-6xl mx-auto w-full">
                         <div className="gold-border-box bg-black/85 backdrop-blur-md rounded-3xl p-6 sm:p-8 shadow-2xl border border-gold/30">
