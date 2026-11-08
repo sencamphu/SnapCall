@@ -38,7 +38,6 @@
                 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
                 onSyncStatusChange(true);
 
-                // TẢI TRỰC TIẾP LẬP TỨC 100% DỮ LIỆU TỪ CLOUD SUPABASE KHI MỞ TRANG
                 const fetchData = async () => {
                     try {
                         const { data, error } = await supabaseClient
@@ -55,9 +54,8 @@
                     }
                 };
                 
-                fetchData();
+                await fetchData();
 
-                // Đăng ký kênh Realtime WebSocket
                 const channel = supabaseClient
                     .channel('room_poker_live', { config: { broadcast: { self: true } } })
                     .on('postgres_changes', { event: '*', schema: 'public', table: 'tournaments' }, payload => {
@@ -72,13 +70,10 @@
                     })
                     .subscribe();
 
-                // Polling dự phòng 1.5s/lần đảm bảo không bao giờ lệch tour
-                setInterval(fetchData, 1500);
+                setInterval(fetchData, 2000);
 
-                // ÉP LƯU DỮ LIỆU LÊN CLOUD SUPABASE
                 window.saveTournamentsToCloud = async (appDataState) => {
                     const isAdmin = localStorage.getItem('snapcall_admin_auth') === 'true';
-                    
                     window.popoutBroadcastChannel.postMessage({ data: appDataState });
 
                     if (!isAdmin) return;
@@ -95,9 +90,13 @@
                             payload: { data: payloadData }
                         });
 
-                        await supabaseClient
+                        const { error } = await supabaseClient
                             .from('tournaments')
                             .upsert({ id: 'live_state', data: payloadData, updated_at: new Date().toISOString() });
+                        
+                        if (error) {
+                            console.error("Supabase Upsert Error:", error);
+                        }
                     } catch (e) {
                         console.warn("Lỗi lưu Supabase Cloud:", e);
                     }
@@ -360,7 +359,6 @@ const defaultTourTemplate = (name, id, buyIn, rebuyPrice) => ({
     }
 });
 
-// HÀM PHÁT ÂM THANH CHUẨN REALTIME TRÊN MỌI THIẾT BỊ (DI ĐỘNG, IPAD, LAPTOP, PC)
 const playSoundEffect = (soundType) => {
     try {
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -668,7 +666,6 @@ function App() {
     const [searchResultPlayer, setSearchResultPlayer] = useState(null);
     const [showFontSizesCollapse, setShowFontSizesCollapse] = useState(false);
     
-    // ĐỒNG HỒ ĐẾM NGƯỢC GIỜ KHAI MẠC REALTIME
     const [preTourCountdownSecs, setPreTourCountdownSecs] = useState(0);
 
     const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
@@ -681,6 +678,15 @@ function App() {
     const [loginError, setLoginError] = useState('');
 
     const [appState, setAppState] = useState(() => {
+        const saved = localStorage.getItem('snapcall_poker_live_state_v9');
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                if (parsed && Array.isArray(parsed.tours) && parsed.tours.length > 0) {
+                    return parsed;
+                }
+            } catch(e) {}
+        }
         return {
             tours: [
                 defaultTourTemplate('MONTER STACK', 101, 100, 100),
@@ -689,11 +695,11 @@ function App() {
             ],
             presets: [],
             selectedTourId: 101,
-            lastUpdated: 0
+            lastUpdated: Date.now()
         };
     });
 
-    const [adminSetupTourId, setAdminSetupTourId] = useState(101);
+    const [adminSetupTourId, setAdminSetupTourId] = useState(() => appState.selectedTourId || 101);
     const [publicViewTourId, setPublicViewTourId] = useState(null);
 
     const tournaments = appState.tours || [];
@@ -710,6 +716,12 @@ function App() {
     useEffect(() => {
         setDraftConfigState(JSON.parse(JSON.stringify(activeAdminTour)));
     }, [adminSetupTourId, masterSelectedTourId]);
+
+    useEffect(() => {
+        try {
+            localStorage.setItem('snapcall_poker_live_state_v9', JSON.stringify(appState));
+        } catch(e) {}
+    }, [appState]);
 
     useEffect(() => {
         const calcRemaining = () => {
@@ -757,7 +769,28 @@ function App() {
             window.initCloudSync(
                 (cloudState, isFromRemote) => {
                     if (cloudState && cloudState.tours && Array.isArray(cloudState.tours)) {
-                        setAppState(cloudState);
+                        setAppState(prev => {
+                            const cloudTime = cloudState.lastUpdated || 0;
+                            const localTime = prev.lastUpdated || 0;
+                            
+                            const tourMap = new Map();
+                            cloudState.tours.forEach(t => tourMap.set(t.id, t));
+                            prev.tours.forEach(t => {
+                                if (!tourMap.has(t.id)) {
+                                    tourMap.set(t.id, t);
+                                }
+                            });
+                            const mergedTours = Array.from(tourMap.values());
+
+                            const bestSelectedId = cloudTime >= localTime ? (cloudState.selectedTourId || prev.selectedTourId) : prev.selectedTourId;
+
+                            return {
+                                ...cloudState,
+                                tours: mergedTours,
+                                selectedTourId: bestSelectedId,
+                                lastUpdated: Math.max(cloudTime, localTime)
+                            };
+                        });
                         if (cloudState.selectedTourId) {
                             setAdminSetupTourId(cloudState.selectedTourId);
                         }
@@ -817,7 +850,6 @@ function App() {
         }
     };
 
-    // ĐỒNG BỘ THỜI GIAN THEO THỜI GIAN NỀN MÁY CHỦ REALTIME ABSOLUTE TIMESTAMPS VÀ PHÁT ÂM THANH CHUẨN
     useEffect(() => {
         const timer = setInterval(() => {
             const now = Date.now();
@@ -1398,7 +1430,7 @@ function App() {
         }
         setDraftConfigState(prev => ({
             ...prev,
-            payouts: prev.payouts.filter((_, i) => i !== idx)
+            payouts: draftConfigState.payouts.filter((_, i) => i !== idx)
         }));
     };
 
@@ -1499,7 +1531,7 @@ function App() {
 
     return (
         <div className="min-h-screen flex flex-col justify-between pb-20 md:pb-0">
-            {/* HEADER ĐIỀU HƯỚNG TOP BAR (RESPONSIVE CHO PC, LAPTOP, IPAD, MOBILE) */}
+            {/* HEADER ĐIỀU HƯỚNG TOP BAR */}
             <header className="hidden md:flex w-full bg-black/90 backdrop-blur-md border-b border-gold/30 px-6 py-3 justify-between items-center z-50 text-sm">
                 <div className="flex items-center space-x-3">
                     <span className="bg-red-950/90 border border-red-600/50 text-red-400 font-extrabold px-3 py-1.5 rounded-xl tracking-wider uppercase shadow">SNAP CALL POKER</span>
@@ -1684,7 +1716,7 @@ function App() {
                                     ) : (
                                         <div className="bg-gradient-to-b from-emerald-950/80 to-black/90 border border-emerald-500/50 rounded-2xl p-4 text-center shadow-lg">
                                             <div className="text-emerald-400 font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2">
-                                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span> 🟢 TOUR Đang DIỄN RA
+                                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span> 🟢 TOUR ĐANG DIỄN RA
                                             </div>
                                             <div className="text-[11px] text-gray-300 mt-1 font-medium">Giải đấu đã chính thức khởi tranh</div>
                                         </div>
