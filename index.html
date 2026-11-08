@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -37,7 +38,7 @@
                 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
                 onSyncStatusChange(true);
 
-                // HÀM TẢI TRỰC TIẾP DỮ LIỆU TỪ CLOUD SUPABASE (CHẮC CHẮN 100% LẤY TRẮNG TỪ DATABASE CHO THIẾT BỊ MỚI/ẨN DANH)
+                // HÀM TẢI TRỰC TIẾP DỮ LIỆU TỪ CLOUD SUPABASE (CHẮC CHẮN 100% LẤY TRẮNG TỪ DATABASE)
                 const fetchData = async () => {
                     const { data, error } = await supabaseClient
                         .from('tournaments')
@@ -1030,7 +1031,7 @@ function App() {
 
     const addNewTournament = () => {
         const newId = Date.now();
-        const newTour = defaultTourTemplate(`MONSTER STACK`, newId, 100, 100);
+        const newTour = defaultTourTemplate(`MONTER STACK`, newId, 100, 100);
         newTour.gameStats.isPaused = true;
         newTour.gameStats.targetEndTime = null;
 
@@ -1563,7 +1564,7 @@ function App() {
                                         <h3 className="font-cinzel text-lg font-bold text-gold-bright tracking-wider">THÔNG TIN TOUR</h3>
                                     </div>
                                     <div className="flex items-center gap-1 overflow-x-auto">
-                                        {tournaments.map((t, index) => (
+                                        {tournaments.map(t => (
                                             <button
                                                 key={t.id}
                                                 onClick={() => setSelectedTourId(t.id)}
@@ -1574,7 +1575,7 @@ function App() {
                                                 }`}
                                             >
                                                 <span className={`w-2 h-2 rounded-full ${t.gameStats.isFinished ? 'bg-gray-500' : (t.gameStats.isPaused ? 'bg-red-500' : 'bg-emerald-400')}`}></span>
-                                                Tour {index + 1}
+                                                {t.config.name}
                                             </button>
                                         ))}
                                     </div>
@@ -1902,7 +1903,7 @@ function App() {
                         <div className="bg-black/60 border border-gold/30 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2 backdrop-blur-md">
                             <div className="flex items-center space-x-2 overflow-x-auto py-1">
                                 <span className="text-xs text-gold-bright uppercase font-bold mr-1">Danh Sách Tour:</span>
-                                {tournaments.map((t, index) => (
+                                {tournaments.map(t => (
                                     <div
                                         key={t.id}
                                         onClick={() => setSelectedTourId(t.id)}
@@ -1913,7 +1914,7 @@ function App() {
                                         }`}
                                     >
                                         <span className={`w-2 h-2 rounded-full ${t.gameStats.isFinished ? 'bg-gray-500' : (t.gameStats.isPaused ? 'bg-red-500' : 'bg-emerald-400')}`}></span>
-                                        <span>Tour {index + 1} ({t.config.name})</span>
+                                        <span>{t.config.name}</span>
                                         {tournaments.length > 1 && (
                                             <button 
                                                 type="button"
