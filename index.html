@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -38,7 +37,7 @@
                 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
                 onSyncStatusChange(true);
 
-                // HÀM TẢI TRỰC TIẾP DỮ LIỆU TỪ CLOUD SUPABASE (ƯU TIÊN HÀNG ĐẦU CHO MÁY MỚI)
+                // HÀM TẢI TRỰC TIẾP DỮ LIỆU TỪ CLOUD SUPABASE (ƯU TIÊN HÀNG ĐẦU CHO MỌI THIẾT BỊ)
                 const fetchData = async () => {
                     const { data, error } = await supabaseClient
                         .from('tournaments')
@@ -51,9 +50,10 @@
                     }
                 };
                 
+                // Tải dữ liệu Cloud ngay khi vừa mở web
                 fetchData();
 
-                // Đăng ký kênh Realtime để nhận thông báo từ Admin ngay lập tức
+                // Đăng ký kênh Realtime WebSocket để nhận mọi thay đổi từ bất kỳ máy Admin nào (Laptop hoặc Điện thoại)
                 const channel = supabaseClient
                     .channel('room_poker_live', { config: { broadcast: { self: true } } })
                     .on('postgres_changes', { event: '*', schema: 'public', table: 'tournaments' }, payload => {
@@ -68,31 +68,36 @@
                     })
                     .subscribe();
 
-                // Tự động Polling kiểm tra bản ghi Cloud định kỳ 3s/lần cho thiết bị khách
-                setInterval(fetchData, 3000);
+                // Polling kiểm tra bản ghi Cloud 2 giây/lần chống mất kết nối Realtime
+                setInterval(fetchData, 2000);
 
-                // HÀM ÉP LƯU DỮ LIỆU LÊN CLOUD (CHỈ ADMIN THỰC HIỆN)
+                // HÀM ÉP LƯU DỮ LIỆU LÊN CLOUD VỚI TIMESTAMP CHỐNG LỆCH PHIÊN ADMIN
                 window.saveTournamentsToCloud = async (appDataState) => {
                     const isAdmin = localStorage.getItem('snapcall_admin_auth') === 'true';
                     
                     // Phát nội bộ cho Popout TV
                     window.popoutBroadcastChannel.postMessage({ data: appDataState });
 
-                    // KHÓA TUYỆT ĐỐI: Nếu không phải Admin thì KHÔNG ĐƯỢC ĐẨY ĐỀ NGHỊ LÊN SUPABASE CLOUD
+                    // Nếu không phải Admin thì KHÔNG ĐƯỢC ĐẨY ĐỀ NGHỊ LÊN CLOUD
                     if (!isAdmin) {
                         return;
                     }
 
                     try {
+                        const payloadData = {
+                            ...appDataState,
+                            lastUpdated: Date.now()
+                        };
+
                         channel.send({
                             type: 'broadcast',
                             event: 'tour_update',
-                            payload: { data: appDataState }
+                            payload: { data: payloadData }
                         });
 
                         await supabaseClient
                             .from('tournaments')
-                            .upsert({ id: 'live_state', data: appDataState, updated_at: new Date().toISOString() });
+                            .upsert({ id: 'live_state', data: payloadData, updated_at: new Date().toISOString() });
                     } catch (e) {
                         console.warn("Lỗi lưu Supabase Cloud:", e);
                     }
@@ -580,7 +585,8 @@ function App() {
         return {
             tours: [defaultTourTemplate('MONTER STACK', 101, 100, 100)],
             presets: [],
-            selectedTourId: 101
+            selectedTourId: 101,
+            lastUpdated: 0
         };
     });
 
@@ -632,7 +638,7 @@ function App() {
         if (isAdminLoggedIn) {
             // ADMIN ĐỔI TOUR: ĐẨY TRỰC TIẾP LÊN SUPABASE CLOUD
             setAppState(prev => {
-                const nextState = { ...prev, selectedTourId: newTourId };
+                const nextState = { ...prev, selectedTourId: newTourId, lastUpdated: Date.now() };
                 if (window.saveTournamentsToCloud) {
                     window.saveTournamentsToCloud(nextState);
                 }
@@ -644,7 +650,7 @@ function App() {
         }
     };
 
-    // KHỞI TẠO ĐỒNG BỘ SUPABASE REALTIME KHI VỪA MỞ WEB
+    // KHỞI TẠO ĐỒNG BỘ SUPABASE REALTIME KHI VỪA MỞ WEB (ÉP TRỰC TIẾP 100% DANH SÁCH TOUR TỪ CLOUD)
     useEffect(() => {
         if (window.initCloudSync) {
             window.initCloudSync(
@@ -652,9 +658,13 @@ function App() {
                     if (cloudState) {
                         let normalizedState = cloudState;
                         if (Array.isArray(cloudState)) {
-                            normalizedState = { tours: cloudState, presets: [], selectedTourId: cloudState[0]?.id || 101 };
+                            normalizedState = { tours: cloudState, presets: [], selectedTourId: cloudState[0]?.id || 101, lastUpdated: Date.now() };
                         }
-                        setAppState(normalizedState);
+                        
+                        setAppState(prev => {
+                            // Nếu dữ liệu từ Cloud nhận được có số lượng Tour nhiều hơn hoặc mới hơn thì ÉP CHẤP NHẬN TẤT CẢ
+                            return normalizedState;
+                        });
                     }
                 },
                 (status) => setIsCloudSynced(status)
@@ -670,7 +680,8 @@ function App() {
         setAppState(prev => {
             const nextState = {
                 ...prev,
-                tours: prev.tours.map(t => t.id === masterSelectedTourId ? JSON.parse(JSON.stringify(draftConfigState)) : t)
+                tours: prev.tours.map(t => t.id === masterSelectedTourId ? JSON.parse(JSON.stringify(draftConfigState)) : t),
+                lastUpdated: Date.now()
             };
             if (window.saveTournamentsToCloud) {
                 window.saveTournamentsToCloud(nextState);
@@ -904,7 +915,8 @@ function App() {
                         };
                     }
                     return t;
-                })
+                }),
+                lastUpdated: Date.now()
             };
             if (window.saveTournamentsToCloud) {
                 window.saveTournamentsToCloud(nextState);
@@ -944,7 +956,8 @@ function App() {
                         }
                     }
                     return t;
-                })
+                }),
+                lastUpdated: Date.now()
             };
             if (window.saveTournamentsToCloud) {
                 window.saveTournamentsToCloud(nextState);
@@ -972,7 +985,8 @@ function App() {
                             };
                         }
                         return t;
-                    })
+                    }),
+                    lastUpdated: Date.now()
                 };
                 if (window.saveTournamentsToCloud) {
                     window.saveTournamentsToCloud(nextState);
@@ -1001,7 +1015,8 @@ function App() {
                         };
                     }
                     return t;
-                })
+                }),
+                lastUpdated: Date.now()
             };
             if (window.saveTournamentsToCloud) {
                 window.saveTournamentsToCloud(nextState);
@@ -1013,12 +1028,17 @@ function App() {
     const addNewTournament = () => {
         if (!isAdminLoggedIn) return;
         const newId = Date.now();
-        const newTour = defaultTourTemplate(`MONTER STACK`, newId, 100, 100);
+        const newTour = defaultTourTemplate(`TOUR #${tournaments.length + 1}`, newId, 100, 100);
         newTour.gameStats.isPaused = true;
         newTour.gameStats.targetEndTime = null;
 
         setAppState(prev => {
-            const nextState = { ...prev, tours: [...prev.tours, newTour], selectedTourId: newId };
+            const nextState = { 
+                ...prev, 
+                tours: [...prev.tours, newTour], 
+                selectedTourId: newId, 
+                lastUpdated: Date.now() 
+            };
             if (window.saveTournamentsToCloud) {
                 window.saveTournamentsToCloud(nextState);
             }
@@ -1035,7 +1055,12 @@ function App() {
         if (window.confirm("Xóa giải đấu này khỏi hệ thống?")) {
             const remaining = tournaments.filter(t => t.id !== tourId);
             setAppState(prev => {
-                const nextState = { ...prev, tours: remaining, selectedTourId: remaining[0].id };
+                const nextState = { 
+                    ...prev, 
+                    tours: remaining, 
+                    selectedTourId: remaining[0].id, 
+                    lastUpdated: Date.now() 
+                };
                 if (window.saveTournamentsToCloud) {
                     window.saveTournamentsToCloud(nextState);
                 }
@@ -1058,7 +1083,8 @@ function App() {
         setAppState(prev => {
             const nextState = {
                 ...prev,
-                presets: [...(prev.presets || []).filter(p => p.name !== presetName), newPreset]
+                presets: [...(prev.presets || []).filter(p => p.name !== presetName), newPreset],
+                lastUpdated: Date.now()
             };
             if (window.saveTournamentsToCloud) {
                 window.saveTournamentsToCloud(nextState);
@@ -1079,7 +1105,8 @@ function App() {
             setAppState(prev => {
                 const nextState = {
                     ...prev,
-                    tours: prev.tours.map(t => t.id === masterSelectedTourId ? loaded : t)
+                    tours: prev.tours.map(t => t.id === masterSelectedTourId ? loaded : t),
+                    lastUpdated: Date.now()
                 };
                 if (window.saveTournamentsToCloud) {
                     window.saveTournamentsToCloud(nextState);
@@ -1095,7 +1122,8 @@ function App() {
             setAppState(prev => {
                 const nextState = {
                     ...prev,
-                    presets: (prev.presets || []).filter(p => p.id !== presetId)
+                    presets: (prev.presets || []).filter(p => p.id !== presetId),
+                    lastUpdated: Date.now()
                 };
                 if (window.saveTournamentsToCloud) {
                     window.saveTournamentsToCloud(nextState);
@@ -1140,7 +1168,8 @@ function App() {
                                         };
                                     }
                                     return t;
-                                })
+                                }),
+                                lastUpdated: Date.now()
                             };
                             if (window.saveTournamentsToCloud) {
                                 window.saveTournamentsToCloud(nextState);
@@ -1150,7 +1179,7 @@ function App() {
                         alert(`Đã cập nhật tour "${parsedData.config.name}" thành công!`);
                     } else if (Array.isArray(parsedData) && parsedData.length > 0) {
                         setAppState(prev => {
-                            const nextState = { ...prev, tours: parsedData, selectedTourId: parsedData[0].id };
+                            const nextState = { ...prev, tours: parsedData, selectedTourId: parsedData[0].id, lastUpdated: Date.now() };
                             if (window.saveTournamentsToCloud) {
                                 window.saveTournamentsToCloud(nextState);
                             }
@@ -1355,7 +1384,8 @@ function App() {
                         };
                     }
                     return t;
-                })
+                }),
+                lastUpdated: Date.now()
             };
             if (window.saveTournamentsToCloud) {
                 window.saveTournamentsToCloud(nextState);
@@ -1385,7 +1415,8 @@ function App() {
                         };
                     }
                     return t;
-                })
+                }),
+                lastUpdated: Date.now()
             };
             if (window.saveTournamentsToCloud) {
                 window.saveTournamentsToCloud(nextState);
