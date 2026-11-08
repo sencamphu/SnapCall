@@ -1,4 +1,4 @@
-
+```html
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -27,8 +27,6 @@
 
         window.isFirstCloudSyncDone = false;
         window.lastCloudTimestamp = 0;
-
-        // Broadcast channel để truyền dữ liệu đồng bộ siêu tốc cho cửa sổ Pop-out
         window.popoutBroadcastChannel = new BroadcastChannel('snapcall_popout_sync');
 
         window.initCloudSync = async function(onDataReceived, onSyncStatusChange) {
@@ -42,6 +40,7 @@
                 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
                 onSyncStatusChange(true);
 
+                // TẢI TRỰC TIẾP DỮ LIỆU TỪ CLOUD SUPABASE KHI TRANG VỪA MỞ LÊN (0ms DELAY)
                 const fetchData = async () => {
                     const { data, error } = await supabaseClient
                         .from('tournaments')
@@ -53,7 +52,7 @@
                         const recordTime = data.updated_at ? new Date(data.updated_at).getTime() : Date.now();
                         window.lastCloudTimestamp = recordTime;
                         window.isFirstCloudSyncDone = true;
-                        // ÉP NHẬN DỮ LIỆU CLOUD NGAY KHI VÀO WEB (KHÔNG BỊ GIỮ CACHE CŨ)
+                        // ÉP TRỰC TIẾP TOÀN BỘ STATE CLOUD BAO GỒM CẢ SELECTED_TOUR_ID
                         onDataReceived(data.data, true);
                     } else {
                         window.isFirstCloudSyncDone = true;
@@ -61,6 +60,7 @@
                 };
                 fetchData();
 
+                // LẮNG NGHE LỆNH REALTIME TỪ CÁC THIẾT BỊ KHÁC
                 const channel = supabaseClient
                     .channel('room_poker_live', { config: { broadcast: { self: false } } })
                     .on('postgres_changes', { event: '*', schema: 'public', table: 'tournaments' }, payload => {
@@ -95,6 +95,7 @@
                     window.popoutBroadcastChannel.postMessage({ data: appDataState });
 
                     try {
+                        // Phát Realtime Broadcast đến mọi thiết bị ngay lập tức
                         channel.send({
                             type: 'broadcast',
                             event: 'tour_update',
@@ -680,7 +681,7 @@ function App() {
         });
     };
 
-    // ĐỒNG BỘ REALTIME TỰ ĐỘNG KHI THIẾT BỊ MỚI VÀO - ÉP 100% THIẾT BỊ MỚI NHẬN TOUR ĐANG CHẠY
+    // ĐỒNG BỘ REALTIME TỰ ĐỘNG KHI THIẾT BỊ MỚI VÀO - ÉP 100% THIẾT BỊ MỚI NHẬN TOUR ĐANG CHẠY CÙNG EPOCH TIMESTAMPS
     useEffect(() => {
         if (window.initCloudSync) {
             window.initCloudSync(
@@ -821,7 +822,7 @@ function App() {
         }
     };
 
-    // ĐỒNG BỘ ĐỒNG HỒ REALTIME TỰ ĐỘNG KHÔNG LÀM NHẢY THAY ĐỔI STATS
+    // ĐỒNG BỘ THỜI GIAN THEO THỜI GIAN NỀN MÁY CHỦ REALTIME ABSOLUTE TIMESTAMPS
     useEffect(() => {
         const timer = setInterval(() => {
             const now = Date.now();
@@ -832,6 +833,7 @@ function App() {
                         return tour;
                     }
 
+                    // Tính thời gian thực tế còn lại chính xác từng miligiây dựa vào Target End Timestamp
                     const remainingSecs = Math.max(0, Math.ceil((tour.gameStats.targetEndTime - now) / 1000));
 
                     if (remainingSecs > 0) {
