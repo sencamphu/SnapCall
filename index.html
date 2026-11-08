@@ -25,6 +25,9 @@
         const SUPABASE_URL = "https://mkizhwumwxfqlwwfoief.supabase.co";
         const SUPABASE_ANON_KEY = "sb_publishable_XL_p7DDfizVqdz_mETXztw_7MecHfiQ";
 
+        // Khóa đồng bộ ban đầu ngắt hoàn toàn tình trạng thiết bị cũ ghi đè ngược Cloud
+        window.isFirstCloudSyncDone = false;
+
         window.initCloudSync = async function(onDataReceived, onSyncStatusChange) {
             if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !window.supabase) {
                 console.warn("Supabase SDK chưa sẵn sàng.");
@@ -44,7 +47,10 @@
                         .maybeSingle();
 
                     if (data && data.data) {
+                        window.isFirstCloudSyncDone = true;
                         onDataReceived(data.data, true);
+                    } else {
+                        window.isFirstCloudSyncDone = true;
                     }
                 };
                 fetchData();
@@ -53,11 +59,13 @@
                     .channel('room_poker_live', { config: { broadcast: { self: false } } })
                     .on('postgres_changes', { event: '*', schema: 'public', table: 'tournaments' }, payload => {
                         if (payload.new && payload.new.data) {
+                            window.isFirstCloudSyncDone = true;
                             onDataReceived(payload.new.data, true);
                         }
                     })
                     .on('broadcast', { event: 'tour_update' }, payload => {
                         if (payload.payload && payload.payload.data) {
+                            window.isFirstCloudSyncDone = true;
                             onDataReceived(payload.payload.data, true);
                         }
                     })
@@ -65,6 +73,10 @@
 
                 let dbSaveTimeout = null;
                 window.saveTournamentsToCloud = async (appDataState) => {
+                    // CHỈ PHÁT VÀ LƯU CLOUD KHI ĐÃ ĐỒNG BỘ BAN ĐẦU THÀNH CÔNG VÀ ADMIN CÓ THAO TÁC SỬA
+                    if (!window.isFirstCloudSyncDone) {
+                        return;
+                    }
                     try {
                         channel.send({
                             type: 'broadcast',
@@ -284,7 +296,8 @@ const defaultTourTemplate = (name, id, buyIn, rebuyPrice) => ({
             nextLevelPx: 46,
             statsPx: 30,
             payoutsPx: 24,
-            levelBadgePx: 22
+            levelBadgePx: 22,
+            tourInfoPx: 18
         }
     },
     blinds: JSON.parse(JSON.stringify(defaultBlinds)),
@@ -367,7 +380,7 @@ function TournamentTVCard({ tour, openSinglePopout, isPopoutWindow }) {
     const avgStack = playersLeft > 0 ? Math.round(totalChipsInPlay / playersLeft) : 0;
     const nextBreakTime = formatTimeHHMMSS(getSecondsToNextBreak(tour));
     
-    const fontSizes = tour.config.fontCustomSizes || { brandPx: 30, headerPx: 56, subHeaderPx: 18, timerPx: 120, blindsPx: 54, nextLevelPx: 46, statsPx: 30, payoutsPx: 24, levelBadgePx: 22 };
+    const fontSizes = tour.config.fontCustomSizes || { brandPx: 30, headerPx: 56, subHeaderPx: 18, timerPx: 120, blindsPx: 54, nextLevelPx: 46, statsPx: 30, payoutsPx: 24, levelBadgePx: 22, tourInfoPx: 18 };
     const themeStyle = getThemeStyles(tour.config.colorTheme);
     const selectedFontClass = tour.config.selectedFont || 'font-montserrat';
     const logoSize = tour.config.logoSizePx || 80;
@@ -420,7 +433,7 @@ function TournamentTVCard({ tour, openSinglePopout, isPopoutWindow }) {
                             {tour.config.name}
                         </div>
                         
-                        <div className="flex flex-wrap justify-center items-center gap-x-2 sm:gap-x-4 text-gray-200 font-medium tracking-wide" style={{ fontSize: `${fontSizes.subHeaderPx || 18}px` }}>
+                        <div className="flex flex-wrap justify-center items-center gap-x-2 sm:gap-x-4 text-gray-200 font-medium tracking-wide" style={{ fontSize: `${fontSizes.tourInfoPx || fontSizes.subHeaderPx || 18}px` }}>
                             <div>Buyin: <span className="text-white font-bold">{tour.config.buyIn}</span></div>
                             <div>Rebuy: <span className="text-white font-bold">{tour.config.rebuyPrice}</span></div>
                             <div>Stack: <span className="text-white font-bold">{tour.config.startingStack.toLocaleString()}</span></div>
@@ -686,7 +699,8 @@ function App() {
             const currentStr = JSON.stringify(appState);
             localStorage.setItem('poker_tournaments_live_v6', currentStr);
             
-            if (userHasModified.current && !isRemoteUpdating.current && currentStr !== lastLocalString.current) {
+            // CHỈ GỬI LÊN CLOUD KHI ADMIN BẤM NÚT SỬA VÀ ĐÃ ĐỒNG BỘ XONG BAN ĐẦU
+            if (userHasModified.current && window.isFirstCloudSyncDone && !isRemoteUpdating.current && currentStr !== lastLocalString.current) {
                 lastLocalString.current = currentStr;
                 userHasModified.current = false;
                 if (window.saveTournamentsToCloud) {
@@ -1365,7 +1379,8 @@ function App() {
         nextLevelPx: 46,
         statsPx: 30,
         payoutsPx: 24,
-        levelBadgePx: 22
+        levelBadgePx: 22,
+        tourInfoPx: 18
     };
 
     return (
@@ -2189,8 +2204,8 @@ function App() {
                                                         <input type="number" value={fontCustomSizes.headerPx} onChange={(e)=> updateDraftFontSize('headerPx', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white font-bold text-center" />
                                                     </div>
                                                     <div>
-                                                        <span className="text-xs text-gray-400 block mb-1">Sub-Header (px)</span>
-                                                        <input type="number" value={fontCustomSizes.subHeaderPx} onChange={(e)=> updateDraftFontSize('subHeaderPx', e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white font-bold text-center" />
+                                                        <span className="text-xs text-gray-400 block mb-1">Sub-Header / Info (px)</span>
+                                                        <input type="number" value={fontCustomSizes.tourInfoPx || fontCustomSizes.subHeaderPx} onChange={(e)=> { updateDraftFontSize('subHeaderPx', e.target.value); updateDraftFontSize('tourInfoPx', e.target.value); }} className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white font-bold text-center" />
                                                     </div>
                                                     <div>
                                                         <span className="text-xs text-gray-400 block mb-1">Level Badge (px)</span>
