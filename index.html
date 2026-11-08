@@ -38,7 +38,7 @@
                 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
                 onSyncStatusChange(true);
 
-                // HÀM TẢI TRỰC TIẾP DỮ LIỆU TỪ CLOUD SUPABASE (CHẮC CHẮN 100% LẤY TRẮNG TỪ DATABASE)
+                // HÀM TẢI TRỰC TIẾP DỮ LIỆU TỪ CLOUD SUPABASE (ƯU TIÊN HÀNG ĐẦU CHO MÁY MỚI)
                 const fetchData = async () => {
                     const { data, error } = await supabaseClient
                         .from('tournaments')
@@ -51,10 +51,9 @@
                     }
                 };
                 
-                // Tải dữ liệu từ cloud ngay khi mở web
                 fetchData();
 
-                // Đăng ký kênh Realtime để nhận thông báo thay đổi tức thì từ Admin
+                // Đăng ký kênh Realtime để nhận thông báo từ Admin ngay lập tức
                 const channel = supabaseClient
                     .channel('room_poker_live', { config: { broadcast: { self: true } } })
                     .on('postgres_changes', { event: '*', schema: 'public', table: 'tournaments' }, payload => {
@@ -69,19 +68,28 @@
                     })
                     .subscribe();
 
-                // HÀM ÉP LƯU DỮ LIỆU LÊN CLOUD VÀ PHÁT BROADCAST ĐẾN TẤT CẢ THIẾT BỊ KHÁC
+                // Tự động Polling kiểm tra bản ghi Cloud định kỳ 3s/lần cho thiết bị khách
+                setInterval(fetchData, 3000);
+
+                // HÀM ÉP LƯU DỮ LIỆU LÊN CLOUD (CHỈ ADMIN THỰC HIỆN)
                 window.saveTournamentsToCloud = async (appDataState) => {
+                    const isAdmin = localStorage.getItem('snapcall_admin_auth') === 'true';
+                    
+                    // Phát nội bộ cho Popout TV
                     window.popoutBroadcastChannel.postMessage({ data: appDataState });
 
+                    // KHÓA TUYỆT ĐỐI: Nếu không phải Admin thì KHÔNG ĐƯỢC ĐẨY ĐỀ NGHỊ LÊN SUPABASE CLOUD
+                    if (!isAdmin) {
+                        return;
+                    }
+
                     try {
-                        // 1. Phát tức thì tới các máy đang mở web
                         channel.send({
                             type: 'broadcast',
                             event: 'tour_update',
                             payload: { data: appDataState }
                         });
 
-                        // 2. Ghi đè cứng vào Database Supabase để máy vào sau/máy ẩn danh tải về đúng 100%
                         await supabaseClient
                             .from('tournaments')
                             .upsert({ id: 'live_state', data: appDataState, updated_at: new Date().toISOString() });
@@ -262,18 +270,18 @@ const defaultTourTemplate = (name, id, buyIn, rebuyPrice) => ({
         showSubTitle: true,
         clubName: 'SNAP CALL',
         subTitle: 'BOARD GAME & COFFEE',
-        name: name || 'SNAP HYPER',
+        name: name || 'MONTER STACK',
         scheduledStartDate: getTodayDateString(),
         scheduledStartTime: '13:00',
         enableScheduledTimer: true,
         maxLeaderboardTop: 10,
-        buyIn: buyIn || 90,
+        buyIn: buyIn || 100,
         currency: 'TOKEN',
         fee: 0,
         startingStack: 25000,
         maxPlayersPerTable: 10,
         allowRebuys: true,
-        rebuyPrice: rebuyPrice || 90,
+        rebuyPrice: rebuyPrice || 100,
         regEndLevel: 11,
         logoSizePx: 80,
         qrSizePx: 70,
@@ -315,10 +323,10 @@ const defaultTourTemplate = (name, id, buyIn, rebuyPrice) => ({
         buyIns: 9,
         eliminated: 4,
         rebuys: 5,
-        currentStepIdx: 3,
-        secondsLeft: 823,
+        currentStepIdx: 1,
+        secondsLeft: 611,
         targetEndTime: null,
-        isPaused: true,
+        isPaused: false,
         isFinished: false
     }
 });
@@ -569,32 +577,30 @@ function App() {
     const [loginError, setLoginError] = useState('');
 
     const [appState, setAppState] = useState(() => {
-        const saved = localStorage.getItem('poker_tournaments_live_v6');
-        if (saved) {
-            try { 
-                const parsed = JSON.parse(saved);
-                if (Array.isArray(parsed) && parsed.length > 0) return { tours: parsed, presets: [], selectedTourId: parsed[0].id };
-                if (parsed && parsed.tours) return parsed;
-            } catch(e) {}
-        }
         return {
-            tours: [defaultTourTemplate('SNAP HYPER', 101, 90, 90)],
+            tours: [defaultTourTemplate('MONTER STACK', 101, 100, 100)],
             presets: [],
             selectedTourId: 101
         };
     });
 
+    // VIEW-ONLY LOCAL OVERRIDE CHO KHÁCH HÀNG CHỌN XEM TOUR KHÁC BẤT KỲ MÀ KHÔNG ẢNH HƯỞNG ĐẾN ADMIN/CLOUD
+    const [clientViewTourId, setClientViewTourId] = useState(null);
+
     const tournaments = appState.tours || [];
     const presets = appState.presets || [];
-    const selectedTourId = appState.selectedTourId || tournaments[0]?.id || 101;
+    const masterSelectedTourId = appState.selectedTourId || tournaments[0]?.id || 101;
+    
+    // NẾU LÀ KHÁCH XEM THÌ DÙNG CLIENT ID, NẾU KHÔNG DÙNG MASTER ID TỪ ADMIN
+    const currentDisplayTourId = clientViewTourId || masterSelectedTourId;
 
-    const activeTour = tournaments.find(t => t.id === selectedTourId) || tournaments[0] || defaultTourTemplate('SNAP HYPER', 101, 90, 90);
+    const activeTour = tournaments.find(t => t.id === currentDisplayTourId) || tournaments.find(t => t.id === masterSelectedTourId) || tournaments[0] || defaultTourTemplate('MONTER STACK', 101, 100, 100);
 
     const [draftConfigState, setDraftConfigState] = useState(() => JSON.parse(JSON.stringify(activeTour)));
 
     useEffect(() => {
         setDraftConfigState(JSON.parse(JSON.stringify(activeTour)));
-    }, [selectedTourId]);
+    }, [masterSelectedTourId]);
 
     // TÍNH TOÁN CỐ ĐỊNH GIỜ KHAI MẠC REALTIME
     useEffect(() => {
@@ -621,40 +627,21 @@ function App() {
         return () => clearInterval(interval);
     }, [activeTour.config.scheduledStartDate, activeTour.config.scheduledStartTime]);
 
-    // LỊCH TỰ ĐỘNG DỌN DẸP TOUR KẾT THÚC LÚC 02:00 AM SÁNG HÔM SAU
-    useEffect(() => {
-        const cleanupInterval = setInterval(() => {
-            const now = new Date();
-            if (now.getHours() === 2 && now.getMinutes() === 0) {
-                setAppState(prev => {
-                    const remainingTours = prev.tours.filter(t => !t.gameStats.isFinished);
-                    if (remainingTours.length > 0 && remainingTours.length !== prev.tours.length) {
-                        const nextState = {
-                            ...prev,
-                            tours: remainingTours,
-                            selectedTourId: remainingTours[0].id
-                        };
-                        if (window.saveTournamentsToCloud) {
-                            window.saveTournamentsToCloud(nextState);
-                        }
-                        return nextState;
-                    }
-                    return prev;
-                });
-            }
-        }, 60000);
-        return () => clearInterval(cleanupInterval);
-    }, []);
-
-    // HÀM CHỌN TOUR VÀ ÉP ĐẨY LÊN CLOUD NGAY LẬP TỨC 100%
-    const setSelectedTourId = (newTourId) => {
-        setAppState(prev => {
-            const nextState = { ...prev, selectedTourId: newTourId };
-            if (window.saveTournamentsToCloud) {
-                window.saveTournamentsToCloud(nextState);
-            }
-            return nextState;
-        });
+    // HÀM CHỌN TOUR: PHÂN BIỆT RÕ MÁY ADMIN VÀ KHÁCH XEM
+    const handleSelectTourId = (newTourId) => {
+        if (isAdminLoggedIn) {
+            // ADMIN ĐỔI TOUR: ĐẨY TRỰC TIẾP LÊN SUPABASE CLOUD
+            setAppState(prev => {
+                const nextState = { ...prev, selectedTourId: newTourId };
+                if (window.saveTournamentsToCloud) {
+                    window.saveTournamentsToCloud(nextState);
+                }
+                return nextState;
+            });
+        } else {
+            // KHÁCH XEM ĐỔI TAB TOUR: CHỈ ĐỔI THẺ HIỂN THỊ CỦA RIÊNG MÁY NÀY, KHÔNG ĐẨY CLOUD
+            setClientViewTourId(newTourId);
+        }
     };
 
     // KHỞI TẠO ĐỒNG BỘ SUPABASE REALTIME KHI VỪA MỞ WEB
@@ -667,7 +654,6 @@ function App() {
                         if (Array.isArray(cloudState)) {
                             normalizedState = { tours: cloudState, presets: [], selectedTourId: cloudState[0]?.id || 101 };
                         }
-                        // GHI ĐÈ TRỰC TIẾP TOÀN BỘ STATE TỪ SUPABASE CLOUD LÊN GIAO DIỆN MÁY MỚI / ẨN DANH
                         setAppState(normalizedState);
                     }
                 },
@@ -676,24 +662,15 @@ function App() {
         }
     }, []);
 
-    // LƯU STATE LOCAL CACHE
-    useEffect(() => {
-        try {
-            const currentStr = JSON.stringify(appState);
-            localStorage.setItem('poker_tournaments_live_v6', currentStr);
-            if (window.popoutBroadcastChannel) {
-                window.popoutBroadcastChannel.postMessage({ data: appState });
-            }
-        } catch(e) {
-            console.warn("Storage quota limit:", e);
-        }
-    }, [appState]);
-
     const applyDraftChangesToLive = () => {
+        if (!isAdminLoggedIn) {
+            alert("Bạn cần Đăng nhập Admin để áp dụng thay đổi!");
+            return;
+        }
         setAppState(prev => {
             const nextState = {
                 ...prev,
-                tours: prev.tours.map(t => t.id === selectedTourId ? JSON.parse(JSON.stringify(draftConfigState)) : t)
+                tours: prev.tours.map(t => t.id === masterSelectedTourId ? JSON.parse(JSON.stringify(draftConfigState)) : t)
             };
             if (window.saveTournamentsToCloud) {
                 window.saveTournamentsToCloud(nextState);
@@ -912,11 +889,12 @@ function App() {
     };
 
     const handleStatChange = (field, delta) => {
+        if (!isAdminLoggedIn) return;
         setAppState(prev => {
             const nextState = {
                 ...prev,
                 tours: prev.tours.map(t => {
-                    if (t.id === selectedTourId) {
+                    if (t.id === masterSelectedTourId) {
                         return {
                             ...t,
                             gameStats: {
@@ -936,6 +914,7 @@ function App() {
     };
 
     const togglePauseTour = (tourId) => {
+        if (!isAdminLoggedIn) return;
         const now = Date.now();
         setAppState(prev => {
             const nextState = {
@@ -975,6 +954,7 @@ function App() {
     };
 
     const finishTour = (tourId) => {
+        if (!isAdminLoggedIn) return;
         if (window.confirm("Bạn có chắc chắn muốn KẾT THÚC Tour đấu này? Giao diện TV sẽ hiển thị vinh danh kết thúc.")) {
             setAppState(prev => {
                 const nextState = {
@@ -1003,6 +983,7 @@ function App() {
     };
 
     const adjustTimerSeconds = (tourId, deltaSeconds) => {
+        if (!isAdminLoggedIn) return;
         const now = Date.now();
         setAppState(prev => {
             const nextState = {
@@ -1030,6 +1011,7 @@ function App() {
     };
 
     const addNewTournament = () => {
+        if (!isAdminLoggedIn) return;
         const newId = Date.now();
         const newTour = defaultTourTemplate(`MONTER STACK`, newId, 100, 100);
         newTour.gameStats.isPaused = true;
@@ -1045,6 +1027,7 @@ function App() {
     };
 
     const removeTournament = (tourId) => {
+        if (!isAdminLoggedIn) return;
         if (tournaments.length <= 1) {
             alert("Cần duy trì ít nhất 1 giải đấu trong hệ thống!");
             return;
@@ -1062,6 +1045,7 @@ function App() {
     };
 
     const saveCurrentTourAsPreset = () => {
+        if (!isAdminLoggedIn) return;
         const presetName = prompt("Nhập tên để lưu mẫu Tour này (vd: Monster Stack 100k, High Roller 500k):", activeTour.config.name);
         if (!presetName) return;
 
@@ -1085,16 +1069,17 @@ function App() {
     };
 
     const applyPresetToActiveTour = (presetObj) => {
+        if (!isAdminLoggedIn) return;
         if (window.confirm(`Bạn có muốn nạp mẫu tour "${presetObj.name}" đè lên tour "${activeTour.config.name}" hiện tại?`)) {
             const loaded = JSON.parse(JSON.stringify(presetObj.tourTemplate));
-            loaded.id = selectedTourId;
+            loaded.id = masterSelectedTourId;
             loaded.gameStats.isPaused = true;
             loaded.gameStats.targetEndTime = null;
 
             setAppState(prev => {
                 const nextState = {
                     ...prev,
-                    tours: prev.tours.map(t => t.id === selectedTourId ? loaded : t)
+                    tours: prev.tours.map(t => t.id === masterSelectedTourId ? loaded : t)
                 };
                 if (window.saveTournamentsToCloud) {
                     window.saveTournamentsToCloud(nextState);
@@ -1105,6 +1090,7 @@ function App() {
     };
 
     const deletePreset = (presetId, presetName) => {
+        if (!isAdminLoggedIn) return;
         if (window.confirm(`Bạn có chắc chắn muốn XÓA mẫu tour "${presetName}" khỏi thư viện?`)) {
             setAppState(prev => {
                 const nextState = {
@@ -1130,6 +1116,7 @@ function App() {
     };
 
     const loadSingleTourFromFile = (e) => {
+        if (!isAdminLoggedIn) return;
         const fileReader = new FileReader();
         if (e.target.files && e.target.files[0]) {
             fileReader.readAsText(e.target.files[0], "UTF-8");
@@ -1141,10 +1128,10 @@ function App() {
                             const nextState = {
                                 ...prev,
                                 tours: prev.tours.map(t => {
-                                    if (t.id === selectedTourId) {
+                                    if (t.id === masterSelectedTourId) {
                                         return {
                                             ...parsedData,
-                                            id: selectedTourId,
+                                            id: masterSelectedTourId,
                                             gameStats: {
                                                 ...parsedData.gameStats,
                                                 isPaused: true,
@@ -1348,6 +1335,7 @@ function App() {
     };
 
     const nextStepTour = (tourId) => {
+        if (!isAdminLoggedIn) return;
         const now = Date.now();
         setAppState(prev => {
             const nextState = {
@@ -1377,6 +1365,7 @@ function App() {
     };
 
     const prevStepTour = (tourId) => {
+        if (!isAdminLoggedIn) return;
         const now = Date.now();
         setAppState(prev => {
             const nextState = {
@@ -1567,9 +1556,9 @@ function App() {
                                         {tournaments.map(t => (
                                             <button
                                                 key={t.id}
-                                                onClick={() => setSelectedTourId(t.id)}
+                                                onClick={() => handleSelectTourId(t.id)}
                                                 className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
-                                                    selectedTourId === t.id 
+                                                    currentDisplayTourId === t.id 
                                                         ? 'bg-amber-500 text-black font-black shadow' 
                                                         : 'bg-gray-900 text-gray-300 border border-gray-800'
                                                 }`}
@@ -1906,9 +1895,9 @@ function App() {
                                 {tournaments.map(t => (
                                     <div
                                         key={t.id}
-                                        onClick={() => setSelectedTourId(t.id)}
+                                        onClick={() => handleSelectTourId(t.id)}
                                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 cursor-pointer select-none border ${
-                                            selectedTourId === t.id 
+                                            masterSelectedTourId === t.id 
                                                 ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-black border-gold shadow' 
                                                 : 'bg-gray-900/80 text-gray-300 border-gray-700 hover:border-gold/50'
                                         }`}
